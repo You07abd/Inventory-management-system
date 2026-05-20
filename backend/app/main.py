@@ -1,45 +1,42 @@
+import os
+
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.database import engine, Base
-from app.routers import users, categories, locations, items
+from app.database import Base, engine
+from app.models import Category, Item, Location, Transaction, User
+from app.routers import categories, items, locations, transactions, users
 
-# Import all models so SQLAlchemy knows about them before creating tables
-import app.models  # noqa: F401
 
-app = FastAPI(
-    title="SAFCSP Drone Lab Inventory API",
-    description="Inventory management system for the SAFCSP drone lab",
-    version="1.0.0",
-)
+load_dotenv()
 
-# Allow the React frontend (running on a different port) to call this API
+app = FastAPI(title="SAFCSP Drone Lab Inventory API", version="0.1.0")
+
+frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=[frontend_origin],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Create all database tables automatically on startup
+
 @app.on_event("startup")
-def create_tables():
+def on_startup():
     Base.metadata.create_all(bind=engine)
-
-
-# Register all route groups
-app.include_router(users.router)
-app.include_router(categories.router)
-app.include_router(locations.router)
-app.include_router(items.router)
-
-
-@app.get("/")
-def root():
-    return {"message": "SAFCSP Drone Lab Inventory API is running"}
 
 
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
+
+app.include_router(users.router)
+app.include_router(categories.router)
+app.include_router(locations.router)
+app.include_router(items.router)
+app.include_router(transactions.router)
+
+_models = (Category, Item, Location, Transaction, User)

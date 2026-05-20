@@ -1,29 +1,25 @@
-from datetime import datetime, date
-from pydantic import BaseModel
+from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class CheckoutRequest(BaseModel):
-    user_id: int
-    quantity: int = 1
-    notes: str | None = None
-    due_date: date | None = None
-
-
-class CheckinRequest(BaseModel):
-    user_id: int
-    quantity: int = 1
-    notes: str | None = None
-
-
-class TransactionRead(BaseModel):
-    id: int
+class TransactionBase(BaseModel):
     item_id: int
     user_id: int
     type: str
-    quantity: int
-    notes: str | None
-    due_date: date | None
-    returned_at: datetime | None
-    created_at: datetime
+    quantity: int = Field(default=1, ge=1)
+    notes: str | None = None
+    condition_on_return: str | None = None
+    due_date: datetime | None = None
+    returned_at: datetime | None = None
 
-    model_config = {"from_attributes": True}
+
+class TransactionCreate(TransactionBase):
+    pass
+
+
+class Transaction(TransactionBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    created_at: datetime

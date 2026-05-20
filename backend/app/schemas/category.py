@@ -1,14 +1,21 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
-class CategoryCreate(BaseModel):
+class CategoryBase(BaseModel):
     name: str
     description: str | None = None
 
 
-class CategoryRead(BaseModel):
-    id: int
-    name: str
-    description: str | None
+class CategoryCreate(CategoryBase):
+    pass
 
-    model_config = {"from_attributes": True}
+
+class CategoryUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+
+
+class Category(CategoryBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int

@@ -1,17 +1,19 @@
 import os
+from pathlib import Path
+
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-load_dotenv()
+
+BASE_DIR = Path(__file__).resolve().parents[1]
+load_dotenv(BASE_DIR / ".env")
 
 DATABASE_URL = os.getenv("DATABASE_URL")
-
 if not DATABASE_URL:
-    raise ValueError("DATABASE_URL is not set in the .env file")
+    raise RuntimeError("DATABASE_URL is not configured. Copy .env.example to .env and set DATABASE_URL.")
 
-engine = create_engine(DATABASE_URL)
-
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
@@ -20,7 +22,6 @@ class Base(DeclarativeBase):
 
 
 def get_db():
-    """Dependency that provides a database session per request."""
     db = SessionLocal()
     try:
         yield db

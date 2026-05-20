@@ -1,15 +1,31 @@
 from datetime import datetime
-from pydantic import BaseModel
-from .category import CategoryRead
-from .location import LocationRead
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class ItemBase(BaseModel):
+    name: str
+    description: str | None = None
+    serial_number: str | None = None
+    quantity: int = Field(default=1, ge=1)
+    available_quantity: int | None = Field(default=None, ge=0)
+    condition: str = "good"
+    status: str = "available"
+    qr_code: str | None = None
+    current_holder_id: int | None = None
+    category_id: int | None = None
+    location_id: int | None = None
 
 
 class ItemCreate(BaseModel):
     name: str
     description: str | None = None
     serial_number: str | None = None
-    quantity: int = 1
+    quantity: int = Field(default=1, ge=1)
+    available_quantity: int | None = Field(default=None, ge=0)
     condition: str = "good"
+    status: str = "available"
+    current_holder_id: int | None = None
     category_id: int | None = None
     location_id: int | None = None
 
@@ -18,24 +34,34 @@ class ItemUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
     serial_number: str | None = None
-    quantity: int | None = None
+    quantity: int | None = Field(default=None, ge=1)
+    available_quantity: int | None = Field(default=None, ge=0)
     condition: str | None = None
+    status: str | None = None
+    current_holder_id: int | None = None
     category_id: int | None = None
     location_id: int | None = None
 
 
-class ItemRead(BaseModel):
+class Item(ItemBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
-    name: str
-    description: str | None
-    serial_number: str | None
-    quantity: int
+    asset_code: str
     available_quantity: int
-    condition: str
-    qr_code: str | None
-    category: CategoryRead | None
-    location: LocationRead | None
     created_at: datetime
     updated_at: datetime
 
-    model_config = {"from_attributes": True}
+
+class CheckoutRequest(BaseModel):
+    user_id: int
+    quantity: int = Field(default=1, ge=1)
+    notes: str | None = None
+    due_date: datetime | None = None
+
+
+class CheckinRequest(BaseModel):
+    user_id: int
+    quantity: int = Field(default=1, ge=1)
+    notes: str | None = None
+    condition_on_return: str | None = None

@@ -1,14 +1,21 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
-class LocationCreate(BaseModel):
+class LocationBase(BaseModel):
     name: str
     description: str | None = None
 
 
-class LocationRead(BaseModel):
-    id: int
-    name: str
-    description: str | None
+class LocationCreate(LocationBase):
+    pass
 
-    model_config = {"from_attributes": True}
+
+class LocationUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+
+
+class Location(LocationBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int

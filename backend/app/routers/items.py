@@ -1,124 +1,172 @@
-from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session, joinedload
-import qrcode
-import io
 import base64
+from datetime import datetime
+from io import BytesIO
+
+import qrcode
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Item, Transaction, User
-from app.schemas import ItemCreate, ItemUpdate, ItemRead, CheckoutRequest, CheckinRequest, TransactionRead
+from app.models.category import Category
+from app.models.item import Item
+from app.models.location import Location
+from app.models.transaction import Transaction
+from app.models.user import User
+from app.schemas.item import CheckinRequest, CheckoutRequest
+from app.schemas.item import Item as ItemSchema
+from app.schemas.item import ItemCreate, ItemUpdate
+from app.schemas.transaction import Transaction as TransactionSchema
 
-router = APIRouter(prefix="/items", tags=["Items"])
+
+router = APIRouter(prefix="/items", tags=["items"])
 
 
-def generate_qr_code(item_id: int, item_name: str) -> str:
-    """Generate a base64-encoded QR code image for an item."""
-    data = f"ITEM_ID:{item_id}|NAME:{item_name}"
-    img = qrcode.make(data)
-    buffer = io.BytesIO()
-    img.save(buffer, format="PNG")
+def generate_asset_code(db: Session) -> str:
+    next_number = db.query(Item).count() + 1
+    while True:
+        code = f"SAFCSP-DRONE-{next_number:04d}"
+        if not db.query(Item).filter(Item.asset_code == code).first():
+            return code
+        next_number += 1
+
+
+def generate_qr_code(asset_code: str) -> str:
+    image = qrcode.make(asset_code)
+    buffer = BytesIO()
+    image.save(buffer, format="PNG")
     encoded = base64.b64encode(buffer.getvalue()).decode("utf-8")
     return f"data:image/png;base64,{encoded}"
 
 
-@router.get("/", response_model=list[ItemRead])
-def get_items(db: Session = Depends(get_db)):
-    """Return all items with their category and location details."""
-    return (
-        db.query(Item)
-        .options(joinedload(Item.category), joinedload(Item.location))
-        .all()
-    )
-
-
-@router.get("/{item_id}", response_model=ItemRead)
-def get_item(item_id: int, db: Session = Depends(get_db)):
-    """Return a single item by ID."""
-    item = (
-        db.query(Item)
-        .options(joinedload(Item.category), joinedload(Item.location))
-        .filter(Item.id == item_id)
-        .first()
-    )
+def _get_item_or_404(item_id: int, db: Session) -> Item:
+    item = db.get(Item, item_id)
     if not item:
-        raise HTTPException(status_code=404, detail="Item not found")
+        raise HTTPException(status_code=404, detail="Item not found.")
     return item
 
 
-@router.post("/", response_model=ItemRead, status_code=201)
-def create_item(item: ItemCreate, db: Session = Depends(get_db)):
-    """Create a new inventory item and generate its QR code."""
-    new_item = Item(
-        **item.model_dump(),
-        available_quantity=item.quantity,  # starts fully available
-    )
-    db.add(new_item)
-    db.commit()
-    db.refresh(new_item)
-
-    # Generate and attach QR code now that we have an ID
-    new_item.qr_code = generate_qr_code(new_item.id, new_item.name)
-    db.commit()
-    db.refresh(new_item)
-
-    # Reload relationships before returning
-    db.refresh(new_item)
-    return (
-        db.query(Item)
-        .options(joinedload(Item.category), joinedload(Item.location))
-        .filter(Item.id == new_item.id)
-        .first()
-    )
+def _validate_references(db: Session, user_id: int | None, category_id: int | None, location_id: int | None) -> None:
+    if user_id is not None and not db.get(User, user_id):
+        raise HTTPException(status_code=400, detail="current_holder_id does not reference an existing user.")
+    if category_id is not None and not db.get(Category, category_id):
+        raise HTTPException(status_code=400, detail="category_id does not reference an existing category.")
+    if location_id is not None and not db.get(Location, location_id):
+        raise HTTPException(status_code=400, detail="location_id does not reference an existing location.")
 
 
-@router.put("/{item_id}", response_model=ItemRead)
-def update_item(item_id: int, updates: ItemUpdate, db: Session = Depends(get_db)):
-    """Update an existing item's details."""
-    item = db.query(Item).filter(Item.id == item_id).first()
-    if not item:
-        raise HTTPException(status_code=404, detail="Item not found")
+def _set_status_from_availability(item: Item) -> None:
+    if item.available_quantity <= 0:
+        item.available_quantity = 0
+        item.status = "checked_out"
+    elif item.available_quantity >= item.quantity:
+        item.available_quantity = item.quantity
+        item.status = "available"
+        item.current_holder_id = None
+    else:
+        item.status = "partially_available"
 
-    for field, value in updates.model_dump(exclude_unset=True).items():
-        setattr(item, field, value)
 
+@router.get("/", response_model=list[ItemSchema])
+def list_items(
+    skip: int = 0,
+    limit: int = 100,
+    status_filter: str | None = None,
+    category_id: int | None = None,
+    location_id: int | None = None,
+    db: Session = Depends(get_db),
+):
+    query = db.query(Item)
+    if status_filter:
+        query = query.filter(Item.status == status_filter)
+    if category_id is not None:
+        query = query.filter(Item.category_id == category_id)
+    if location_id is not None:
+        query = query.filter(Item.location_id == location_id)
+    return query.order_by(Item.asset_code).offset(skip).limit(limit).all()
+
+
+@router.post("/", response_model=ItemSchema, status_code=status.HTTP_201_CREATED)
+def create_item(payload: ItemCreate, db: Session = Depends(get_db)):
+    data = payload.model_dump()
+    _validate_references(db, data.get("current_holder_id"), data.get("category_id"), data.get("location_id"))
+    quantity = data["quantity"]
+    available_quantity = data["available_quantity"] if data["available_quantity"] is not None else quantity
+    if available_quantity > quantity:
+        raise HTTPException(status_code=400, detail="available_quantity cannot exceed quantity.")
+
+    asset_code = generate_asset_code(db)
+    data["available_quantity"] = available_quantity
+    item = Item(**data, asset_code=asset_code, qr_code=generate_qr_code(asset_code))
+    _set_status_from_availability(item)
+    db.add(item)
     db.commit()
     db.refresh(item)
-    return (
-        db.query(Item)
-        .options(joinedload(Item.category), joinedload(Item.location))
-        .filter(Item.id == item_id)
-        .first()
-    )
+    return item
 
 
-@router.post("/{item_id}/checkout", response_model=TransactionRead, status_code=201)
-def checkout_item(item_id: int, request: CheckoutRequest, db: Session = Depends(get_db)):
-    """Check out one or more units of an item to a user."""
-    item = db.query(Item).filter(Item.id == item_id).first()
+@router.get("/by-asset-code/{code}", response_model=ItemSchema)
+def get_item_by_asset_code(code: str, db: Session = Depends(get_db)):
+    item = db.query(Item).filter(Item.asset_code == code).first()
     if not item:
-        raise HTTPException(status_code=404, detail="Item not found")
+        raise HTTPException(status_code=404, detail="Item not found.")
+    return item
 
-    user = db.query(User).filter(User.id == request.user_id).first()
+
+@router.get("/{item_id}", response_model=ItemSchema)
+def get_item(item_id: int, db: Session = Depends(get_db)):
+    return _get_item_or_404(item_id, db)
+
+
+@router.put("/{item_id}", response_model=ItemSchema)
+def update_item(item_id: int, payload: ItemUpdate, db: Session = Depends(get_db)):
+    item = _get_item_or_404(item_id, db)
+    data = payload.model_dump(exclude_unset=True)
+    _validate_references(
+        db,
+        data.get("current_holder_id"),
+        data.get("category_id"),
+        data.get("location_id"),
+    )
+    proposed_quantity = data.get("quantity", item.quantity)
+    proposed_available = data.get("available_quantity", item.available_quantity)
+    if proposed_available > proposed_quantity:
+        raise HTTPException(status_code=400, detail="available_quantity cannot exceed quantity.")
+    for field, value in data.items():
+        setattr(item, field, value)
+    _set_status_from_availability(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_item(item_id: int, db: Session = Depends(get_db)):
+    item = _get_item_or_404(item_id, db)
+    db.delete(item)
+    db.commit()
+    return None
+
+
+@router.post("/{item_id}/checkout", response_model=TransactionSchema, status_code=status.HTTP_201_CREATED)
+def checkout_item(item_id: int, payload: CheckoutRequest, db: Session = Depends(get_db)):
+    item = _get_item_or_404(item_id, db)
+    user = db.get(User, payload.user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="User not found.")
+    if payload.quantity > item.available_quantity:
+        raise HTTPException(status_code=400, detail="Requested quantity exceeds available quantity.")
 
-    if item.available_quantity < request.quantity:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Not enough units available. Available: {item.available_quantity}",
-        )
-
-    # Reduce available stock
-    item.available_quantity -= request.quantity
+    item.available_quantity -= payload.quantity
+    item.current_holder_id = payload.user_id
+    _set_status_from_availability(item)
 
     transaction = Transaction(
-        item_id=item_id,
-        user_id=request.user_id,
+        item_id=item.id,
+        user_id=payload.user_id,
         type="checkout",
-        quantity=request.quantity,
-        notes=request.notes,
-        due_date=request.due_date,
+        quantity=payload.quantity,
+        notes=payload.notes,
+        due_date=payload.due_date,
     )
     db.add(transaction)
     db.commit()
@@ -126,33 +174,29 @@ def checkout_item(item_id: int, request: CheckoutRequest, db: Session = Depends(
     return transaction
 
 
-@router.post("/{item_id}/checkin", response_model=TransactionRead, status_code=201)
-def checkin_item(item_id: int, request: CheckinRequest, db: Session = Depends(get_db)):
-    """Check in (return) one or more units of an item."""
-    item = db.query(Item).filter(Item.id == item_id).first()
-    if not item:
-        raise HTTPException(status_code=404, detail="Item not found")
-
-    user = db.query(User).filter(User.id == request.user_id).first()
+@router.post("/{item_id}/checkin", response_model=TransactionSchema, status_code=status.HTTP_201_CREATED)
+def checkin_item(item_id: int, payload: CheckinRequest, db: Session = Depends(get_db)):
+    item = _get_item_or_404(item_id, db)
+    user = db.get(User, payload.user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="User not found.")
+    checked_out_quantity = item.quantity - item.available_quantity
+    if payload.quantity > checked_out_quantity:
+        raise HTTPException(status_code=400, detail="Checkin quantity exceeds checked-out quantity.")
 
-    if item.available_quantity + request.quantity > item.quantity:
-        raise HTTPException(
-            status_code=400,
-            detail="Cannot return more units than were checked out",
-        )
-
-    # Restore available stock
-    item.available_quantity += request.quantity
+    item.available_quantity += payload.quantity
+    if payload.condition_on_return:
+        item.condition = payload.condition_on_return
+    _set_status_from_availability(item)
 
     transaction = Transaction(
-        item_id=item_id,
-        user_id=request.user_id,
+        item_id=item.id,
+        user_id=payload.user_id,
         type="checkin",
-        quantity=request.quantity,
-        notes=request.notes,
-        returned_at=datetime.now(timezone.utc),
+        quantity=payload.quantity,
+        notes=payload.notes,
+        condition_on_return=payload.condition_on_return,
+        returned_at=datetime.utcnow(),
     )
     db.add(transaction)
     db.commit()

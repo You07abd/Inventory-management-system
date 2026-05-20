@@ -1,18 +1,26 @@
 from datetime import datetime
-from pydantic import BaseModel, EmailStr
+
+from pydantic import BaseModel, ConfigDict
 
 
-class UserCreate(BaseModel):
-    name: str
-    email: EmailStr
-    role: str = "student"  # defaults to student if not provided
-
-
-class UserRead(BaseModel):
-    id: int
+class UserBase(BaseModel):
     name: str
     email: str
-    role: str
-    created_at: datetime
+    role: str = "student"
 
-    model_config = {"from_attributes": True}
+
+class UserCreate(UserBase):
+    pass
+
+
+class UserUpdate(BaseModel):
+    name: str | None = None
+    email: str | None = None
+    role: str | None = None
+
+
+class User(UserBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    created_at: datetime
