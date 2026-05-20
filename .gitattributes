@@ -1,0 +1,13 @@
+# Normalize text files: store as LF in the repo, let clients convert on checkout
+* text=auto
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.zip binary
+*.gz binary
+*.bz2 binary
+*.exe binary
+*.dll binary
