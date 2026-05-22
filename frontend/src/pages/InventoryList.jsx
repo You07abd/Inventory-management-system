@@ -16,7 +16,7 @@ export default function InventoryList() {
   const [locations, setLocations] = useState([]);
   const [users, setUsers] = useState([]);
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [availabilityFilter, setAvailabilityFilter] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [checkoutItem, setCheckoutItem] = useState(null);
@@ -27,7 +27,7 @@ export default function InventoryList() {
     setError("");
     try {
       const [itemData, categoryData, locationData, userData] = await Promise.all([
-        itemsApi.list(statusFilter ? { status_filter: statusFilter } : {}),
+        itemsApi.list(),
         categoriesApi.list(),
         locationsApi.list(),
         usersApi.list()
@@ -45,19 +45,23 @@ export default function InventoryList() {
 
   useEffect(() => {
     load();
-  }, [statusFilter]);
+  }, []);
 
   const filteredItems = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    if (!normalized) {
-      return items;
-    }
-    return items.filter((item) =>
-      [item.asset_code, item.name, item.serial_number, item.status]
+    return items.filter((item) => {
+      const availabilityStatus = item.available_quantity < item.quantity ? "checked_out" : "available";
+      if (availabilityFilter && availabilityFilter !== availabilityStatus) {
+        return false;
+      }
+      if (!normalized) {
+        return true;
+      }
+      return [item.asset_code, item.name, item.serial_number, availabilityStatus]
         .filter(Boolean)
-        .some((value) => value.toLowerCase().includes(normalized))
-    );
-  }, [items, query]);
+        .some((value) => value.toLowerCase().includes(normalized));
+    });
+  }, [items, query, availabilityFilter]);
 
   async function checkout(payload) {
     await itemsApi.checkout(checkoutItem.id, payload);
@@ -85,10 +89,9 @@ export default function InventoryList() {
 
       <div className="toolbar">
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search asset, name, serial, status" />
-        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+        <select value={availabilityFilter} onChange={(event) => setAvailabilityFilter(event.target.value)}>
           <option value="">All statuses</option>
           <option value="available">Available</option>
-          <option value="partially_available">Partially available</option>
           <option value="checked_out">Checked out</option>
         </select>
       </div>

@@ -61,6 +61,8 @@ export default function ItemDetail() {
     return item.quantity - item.available_quantity;
   }, [item]);
 
+  const availabilityStatus = checkedOut > 0 ? "checked_out" : "available";
+
   async function checkout(payload) {
     await itemsApi.checkout(item.id, payload);
     setCheckoutOpen(false);
@@ -101,7 +103,7 @@ export default function ItemDetail() {
         <section className="panel">
           <div className="panel-header">
             <h2>Asset Details</h2>
-            <span className={`status ${item.status}`}>{item.status.replaceAll("_", " ")}</span>
+            <span className={`status ${availabilityStatus}`}>{availabilityStatus.replaceAll("_", " ")}</span>
           </div>
           <dl className="detail-list">
             <div>
@@ -125,7 +127,7 @@ export default function ItemDetail() {
               <dd>{item.condition}</dd>
             </div>
             <div>
-              <dt>Quantity</dt>
+              <dt>Availability</dt>
               <dd>
                 {item.available_quantity} available · {checkedOut} checked out · {item.quantity} total
               </dd>
@@ -133,10 +135,10 @@ export default function ItemDetail() {
           </dl>
           <div className="row-actions strong-actions">
             <button type="button" onClick={() => setCheckoutOpen(true)} disabled={item.available_quantity < 1}>
-              Checkout
+              Check out
             </button>
             <button type="button" className="secondary" onClick={() => setCheckinOpen(true)} disabled={checkedOut < 1}>
-              Checkin
+              Check in
             </button>
           </div>
         </section>

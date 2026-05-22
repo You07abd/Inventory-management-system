@@ -17,9 +17,7 @@ export default function AddItem() {
     description: "",
     serial_number: "",
     quantity: 1,
-    available_quantity: "",
     condition: "good",
-    status: "available",
     category_id: "",
     location_id: ""
   });
@@ -51,9 +49,9 @@ export default function AddItem() {
         description: form.description || null,
         serial_number: form.serial_number || null,
         quantity: Number(form.quantity),
-        available_quantity: form.available_quantity === "" ? null : Number(form.available_quantity),
+        available_quantity: null,
         condition: form.condition,
-        status: form.status,
+        status: "available",
         category_id: form.category_id ? Number(form.category_id) : null,
         location_id: form.location_id ? Number(form.location_id) : null
       };
@@ -93,30 +91,12 @@ export default function AddItem() {
           <input type="number" min="1" value={form.quantity} onChange={(event) => update("quantity", event.target.value)} required />
         </label>
         <label>
-          Available Quantity
-          <input
-            type="number"
-            min="0"
-            value={form.available_quantity}
-            onChange={(event) => update("available_quantity", event.target.value)}
-            placeholder="Defaults to quantity"
-          />
-        </label>
-        <label>
           Condition
           <select value={form.condition} onChange={(event) => update("condition", event.target.value)}>
             <option value="excellent">Excellent</option>
             <option value="good">Good</option>
             <option value="needs_inspection">Needs inspection</option>
             <option value="damaged">Damaged</option>
-          </select>
-        </label>
-        <label>
-          Status
-          <select value={form.status} onChange={(event) => update("status", event.target.value)}>
-            <option value="available">Available</option>
-            <option value="partially_available">Partially available</option>
-            <option value="checked_out">Checked out</option>
           </select>
         </label>
         <label>

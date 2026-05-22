@@ -27,6 +27,7 @@ export default function ItemTable({ items, categories = [], locations = [], onCh
         <tbody>
           {items.map((item) => {
             const checkedOut = item.quantity - item.available_quantity;
+            const availabilityStatus = checkedOut > 0 ? "checked_out" : "available";
             return (
               <tr key={item.id}>
                 <td>
@@ -42,15 +43,15 @@ export default function ItemTable({ items, categories = [], locations = [], onCh
                 </td>
                 <td>{item.condition}</td>
                 <td>
-                  <span className={`status ${item.status}`}>{item.status.replaceAll("_", " ")}</span>
+                  <span className={`status ${availabilityStatus}`}>{availabilityStatus.replaceAll("_", " ")}</span>
                 </td>
                 <td>
                   <div className="row-actions">
                     <button type="button" onClick={() => onCheckout(item)} disabled={item.available_quantity < 1}>
-                      Out
+                      Check out
                     </button>
                     <button type="button" className="secondary" onClick={() => onCheckin(item)} disabled={checkedOut < 1}>
-                      In
+                      Check in
                     </button>
                   </div>
                 </td>
