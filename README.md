@@ -1,120 +1,66 @@
 # Inventory Management System
 
-QR-based drone lab inventory web app — asset tracking, spare-parts management, and battery monitoring for SAFCSP.
+A web-based inventory management system built for the SAFCSP drone lab. It tracks physical assets — drones, cameras, batteries, and other equipment — across their full lifecycle: storage, check-out, active use, and return.
 
 ---
 
-## Running Locally on Linux
+## What It Does
 
-### Prerequisites
-
-Make sure the following are installed:
-
-- Python 3.10+
-- Node.js 18+ and npm
-- PostgreSQL
-
-Install PostgreSQL on Debian/Ubuntu:
-
-```bash
-sudo apt update
-sudo apt install postgresql postgresql-contrib
-```
+- **Inventory tracking** — Every item has a unique asset code, serial number, condition, status, and storage location. Quantities update automatically as items are checked out and returned.
+- **Check-out / check-in** — Users can borrow items and return them. Returns record condition on return and optionally capture notes.
+- **QR codes** — Each item gets a generated QR code tied to its asset code. Scanning a QR code opens the item's detail page directly.
+- **Transaction history** — Every check-out and check-in is logged with timestamps, the user involved, quantity, and notes.
+- **Categories & locations** — Items are organised by category (e.g. Drones, Sensors) and physical location (e.g. Drone Cage A, Lab Bench 2).
+- **Dashboard** — At-a-glance summary of total items, available stock, checked-out items, and recent activity.
 
 ---
 
-### 1. Set up the database
+## Tech Stack
 
-Start PostgreSQL and create a database and user:
-
-```bash
-sudo systemctl start postgresql
-sudo -u postgres psql
-```
-
-Inside the psql shell:
-
-```sql
-CREATE USER inventory_user WITH PASSWORD 'yourpassword';
-CREATE DATABASE safcsp_drone_inventory OWNER inventory_user;
-\q
-```
+| Layer | Technology |
+|---|---|
+| Frontend | React 18, Vite, React Router, Axios |
+| Backend | Python, FastAPI, SQLAlchemy, Alembic |
+| Database | PostgreSQL (hosted on Coolify) |
+| QR codes | `qrcode` + `Pillow` (generated server-side) |
 
 ---
 
-### 2. Configure the backend
-
-```bash
-cd backend
-cp .env.example .env
-```
-
-Edit `.env` and set your database credentials:
+## Project Structure
 
 ```
-DATABASE_URL=postgresql+psycopg2://inventory_user:yourpassword@localhost:5432/safcsp_drone_inventory
-FRONTEND_ORIGIN=http://localhost:5173
+Inventory_management_system/
+├── backend/
+│   ├── app/
+│   │   ├── models/        ← SQLAlchemy models (Item, User, Category, Location, Transaction)
+│   │   ├── schemas/       ← Pydantic request/response schemas
+│   │   ├── routers/       ← API route handlers (items, users, categories, locations, transactions)
+│   │   └── database.py    ← DB engine and session setup
+│   ├── alembic/           ← Database migrations
+│   ├── seed.py            ← Sample data loader
+│   └── requirements.txt
+└── frontend/
+    ├── src/
+    │   ├── pages/         ← Dashboard, InventoryList, ItemDetail, AddItem, Transactions, QRLookup
+    │   ├── components/    ← Navbar, ItemTable, CheckoutModal, CheckinModal, QRCodeDisplay
+    │   └── api/           ← Axios API client wrappers
+    └── package.json
 ```
 
 ---
 
-### 3. Install backend dependencies
+## API
 
-```bash
-cd backend
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
+The backend exposes a REST API at `http://localhost:8000`. Interactive docs (Swagger UI) are available at `http://localhost:8000/docs`.
 
----
-
-### 4. Run database migrations
-
-```bash
-cd backend
-source venv/bin/activate
-alembic upgrade head
-```
-
-Optionally seed the database with sample data:
-
-```bash
-python seed.py
-```
+| Resource | Endpoint prefix |
+|---|---|
+| Items | `/items` |
+| Users | `/users` |
+| Categories | `/categories` |
+| Locations | `/locations` |
+| Transactions | `/transactions` |
 
 ---
 
-### 5. Start the backend
-
-```bash
-cd backend
-source venv/bin/activate
-uvicorn app.main:app --reload
-```
-
-The API will be available at `http://localhost:8000`.
-
----
-
-### 6. Install and start the frontend
-
-In a separate terminal:
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-The app will be available at `http://localhost:5173`.
-
----
-
-### Summary
-
-| Service  | URL                      |
-|----------|--------------------------|
-| Frontend | http://localhost:5173    |
-| Backend  | http://localhost:8000    |
-| API Docs | http://localhost:8000/docs |
+> For setup and running instructions, see **[HOW_TO_RUN.md](HOW_TO_RUN.md)**.

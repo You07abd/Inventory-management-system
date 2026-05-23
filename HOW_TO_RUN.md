@@ -1,46 +1,78 @@
 # How to Run — Inventory Management System
 
-Choose your platform:
+Choose your platform and database option:
 
 - [Windows](#windows)
 - [Linux](#linux)
 
 ---
 
-## Prerequisites (both platforms)
+## Database Options
 
-| Tool | Version | Notes |
-|---|---|---|
-| Python | 3.10+ | Backend runtime |
-| Node.js | 18+ | Frontend tooling only |
-| Git | any | Source control |
-| PostgreSQL | hosted on Coolify | No local install needed — use the remote DB |
+The backend connects to PostgreSQL via a `DATABASE_URL` environment variable. You can use either:
+
+| Option | When to use |
+|---|---|
+| **Local (Docker)** | Demo, development, offline work — no credentials needed |
+| **Coolify (remote)** | Shared team database, production data |
+
+Both options work identically once the `DATABASE_URL` in `backend/.env` is set correctly. You can switch between them at any time by editing that one line.
 
 ---
 
-## Project Structure
+## Prerequisites
 
-```
-Inventory_management_system/
-├── backend/          ← FastAPI app
-│   ├── app/
-│   ├── alembic/      ← database migrations
-│   ├── seed.py       ← optional sample data
-│   ├── requirements.txt
-│   └── .env.example
-└── frontend/         ← React + Vite app
-    ├── src/
-    ├── package.json
-    └── .env.example
-```
+| Tool | Required for | Version |
+|---|---|---|
+| Python | Backend | 3.10+ |
+| Node.js + npm | Frontend | 18+ |
+| Docker Desktop | Local DB only | any recent |
+| Git | Both | any |
+
+> If you are using the **Coolify** database you do **not** need Docker.  
+> If you are using the **local Docker** database you do **not** need a Coolify account.
 
 ---
 
 ## Windows
 
-### 1. Backend
+### Step 1 — Start the database
 
-**Create and activate a virtual environment**
+#### Option A — Local database (Docker, recommended for demos)
+
+Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) if you haven't already, then from the project root:
+
+```powershell
+docker compose up -d
+```
+
+This starts a PostgreSQL container on port 5432. Copy the pre-filled local env file:
+
+```powershell
+Copy-Item backend\.env.local.example backend\.env
+```
+
+Your `backend/.env` will contain:
+```env
+DATABASE_URL=postgresql+psycopg2://inv_user:inv_pass@localhost:5432/drone_inventory
+FRONTEND_ORIGIN=http://localhost:5173
+```
+
+#### Option B — Coolify (remote team database)
+
+```powershell
+Copy-Item backend\.env.example backend\.env
+```
+
+Open `backend/.env` and fill in the Coolify credentials (ask a teammate if you don't have them):
+```env
+DATABASE_URL=postgresql+psycopg2://<user>:<password>@<coolify-host>:<port>/<dbname>
+FRONTEND_ORIGIN=http://localhost:5173
+```
+
+---
+
+### Step 2 — Backend setup
 
 ```powershell
 cd backend
@@ -48,43 +80,28 @@ python -m venv venv
 .\venv\Scripts\Activate.ps1
 ```
 
-> If you get a script execution error run this first:
+> If you get a script execution error run:
 > `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
-
-**Install dependencies**
 
 ```powershell
 pip install -r requirements.txt
 ```
 
-**Configure environment variables**
-
-```powershell
-Copy-Item .env.example .env
-```
-
-Open `backend/.env` and fill in the Coolify PostgreSQL connection string:
-
-```env
-DATABASE_URL=postgresql+psycopg2://<user>:<password>@<coolify-host>:<port>/<dbname>
-FRONTEND_ORIGIN=http://localhost:5173
-```
-
-> Ask a teammate for the Coolify credentials if you don't have them.
-
-**Run database migrations**
+**Run migrations** (creates all tables):
 
 ```powershell
 alembic upgrade head
 ```
 
-**(Optional) Seed sample data**
+**Seed sample data** (local DB only — skip if using Coolify with real data):
 
 ```powershell
 python seed.py
 ```
 
-**Start the backend**
+> `seed.py` is idempotent — safe to run multiple times. It adds categories, locations, users, and three sample drone items.
+
+**Start the backend:**
 
 ```powershell
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
@@ -94,9 +111,9 @@ API: **http://localhost:8000** | Docs: **http://localhost:8000/docs**
 
 ---
 
-### 2. Frontend
+### Step 3 — Frontend setup
 
-Open a **new terminal** (keep the backend running).
+Open a **new terminal** (keep the backend running):
 
 ```powershell
 cd frontend
@@ -107,13 +124,9 @@ npm run dev
 
 App: **http://localhost:5173**
 
-The default `.env` already points at `http://localhost:8000` — no changes needed for local dev.
-
 ---
 
-### 3. Quick Reference (Windows)
-
-Open two PowerShell terminals:
+### Quick Reference (Windows)
 
 **Terminal 1 — Backend**
 ```powershell
@@ -128,54 +141,81 @@ cd frontend
 npm run dev
 ```
 
+**Stop local Docker DB when done:**
+```powershell
+docker compose down
+```
+
 ---
 
 ## Linux
 
-### 1. Backend
+### Step 1 — Start the database
 
-**Create and activate a virtual environment**
+#### Option A — Local database (Docker, recommended for demos)
 
+Install Docker if you haven't already:
 ```bash
-cd backend
-python3 -m venv venv
-source venv/bin/activate
+sudo apt install docker.io docker-compose-plugin   # Debian/Ubuntu
+# or follow https://docs.docker.com/engine/install/
 ```
 
-**Install dependencies**
+Then from the project root:
 
 ```bash
-pip install -r requirements.txt
+docker compose up -d
 ```
 
-**Configure environment variables**
+Copy the pre-filled local env file:
 
 ```bash
-cp .env.example .env
+cp backend/.env.local.example backend/.env
 ```
 
-Open `backend/.env` and fill in the Coolify PostgreSQL connection string:
+Your `backend/.env` will contain:
+```env
+DATABASE_URL=postgresql+psycopg2://inv_user:inv_pass@localhost:5432/drone_inventory
+FRONTEND_ORIGIN=http://localhost:5173
+```
 
+#### Option B — Coolify (remote team database)
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+Open `backend/.env` and fill in the Coolify credentials (ask a teammate if you don't have them):
 ```env
 DATABASE_URL=postgresql+psycopg2://<user>:<password>@<coolify-host>:<port>/<dbname>
 FRONTEND_ORIGIN=http://localhost:5173
 ```
 
-> Ask a teammate for the Coolify credentials if you don't have them.
+---
 
-**Run database migrations**
+### Step 2 — Backend setup
+
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+**Run migrations** (creates all tables):
 
 ```bash
 alembic upgrade head
 ```
 
-**(Optional) Seed sample data**
+**Seed sample data** (local DB only — skip if using Coolify with real data):
 
 ```bash
 python seed.py
 ```
 
-**Start the backend**
+> `seed.py` is idempotent — safe to run multiple times. It adds categories, locations, users, and three sample drone items.
+
+**Start the backend:**
 
 ```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
@@ -185,9 +225,9 @@ API: **http://localhost:8000** | Docs: **http://localhost:8000/docs**
 
 ---
 
-### 2. Frontend
+### Step 3 — Frontend setup
 
-Open a **new terminal** (keep the backend running).
+Open a **new terminal** (keep the backend running):
 
 ```bash
 cd frontend
@@ -198,13 +238,9 @@ npm run dev
 
 App: **http://localhost:5173**
 
-The default `.env` already points at `http://localhost:8000` — no changes needed for local dev.
-
 ---
 
-### 3. Quick Reference (Linux)
-
-Open two terminals:
+### Quick Reference (Linux)
 
 **Terminal 1 — Backend**
 ```bash
@@ -219,18 +255,41 @@ cd frontend
 npm run dev
 ```
 
+**Stop local Docker DB when done:**
+```bash
+docker compose down
+```
+
+---
+
+## Switching Between Databases
+
+To switch from local Docker to Coolify (or vice versa), edit one line in `backend/.env`:
+
+```env
+# Local Docker
+DATABASE_URL=postgresql+psycopg2://inv_user:inv_pass@localhost:5432/drone_inventory
+
+# Coolify (replace with real values)
+DATABASE_URL=postgresql+psycopg2://<user>:<password>@<coolify-host>:<port>/<dbname>
+```
+
+Then restart the backend server. No code changes needed.
+
 ---
 
 ## Useful Commands
 
-| Task | Backend command |
+| Task | Command (run from `backend/` with venv active) |
 |---|---|
 | Apply migrations | `alembic upgrade head` |
 | New migration | `alembic revision --autogenerate -m "description"` |
 | Roll back one migration | `alembic downgrade -1` |
-| Re-seed the database | `python seed.py` |
+| Re-seed sample data | `python seed.py` |
+| Start local DB | `docker compose up -d` (from project root) |
+| Stop local DB | `docker compose down` (from project root) |
 
-| Task | Frontend command |
+| Task | Command (run from `frontend/`) |
 |---|---|
 | Start dev server | `npm run dev` |
 | Production build | `npm run build` |
@@ -241,13 +300,18 @@ npm run dev
 ## Troubleshooting
 
 **`DATABASE_URL is not configured`**
-→ `backend/.env` is missing or doesn't have a `DATABASE_URL` line. Copy from `.env.example` and fill it in.
+→ `backend/.env` is missing. Copy from `.env.local.example` (local) or `.env.example` (Coolify) and fill it in.
 
-**`alembic: command not found`** (Linux) or **`alembic` not recognised** (Windows)
-→ Your virtual environment isn't active. Run `source venv/bin/activate` (Linux) or `.\venv\Scripts\Activate.ps1` (Windows).
+**`alembic` / `uvicorn` not found**
+→ Your virtual environment isn't active.
+- Windows: `.\venv\Scripts\Activate.ps1`
+- Linux: `source venv/bin/activate`
+
+**`could not connect to server` or `Connection refused` on port 5432**
+→ The Docker container isn't running. Run `docker compose up -d` from the project root and wait a few seconds.
 
 **Frontend shows network errors or blank data**
-→ Make sure the backend is running on port 8000 and that `VITE_API_BASE_URL=http://localhost:8000` is set in `frontend/.env`.
+→ Make sure the backend is running on port 8000 and `VITE_API_BASE_URL=http://localhost:8000` is set in `frontend/.env`.
 
 **`psycopg2` fails to install**
 → The project uses `psycopg2-binary` (pre-compiled). Ensure you're on Python 3.10+ and that your venv is active.
