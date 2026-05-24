@@ -106,6 +106,39 @@ th {
   font-size: 0.76rem;
   letter-spacing: 0;
   text-transform: uppercase;
+  padding: 0;
+}
+
+.sort-btn {
+  align-items: center;
+  background: transparent;
+  border-radius: 0;
+  color: inherit;
+  display: flex;
+  font-size: inherit;
+  font-weight: inherit;
+  gap: 5px;
+  letter-spacing: inherit;
+  min-height: unset;
+  padding: 13px 14px;
+  text-transform: inherit;
+  width: 100%;
+}
+
+.sort-btn:hover {
+  background: #e2e8ed;
+  color: #2d3f50;
+}
+
+.sort-icon {
+  color: #a0adb8;
+  flex-shrink: 0;
+  height: 12px;
+  width: 10px;
+}
+
+.sort-icon.active {
+  color: #0f766e;
 }
 
 td {

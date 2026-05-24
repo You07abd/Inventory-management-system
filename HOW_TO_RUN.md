@@ -99,7 +99,11 @@ alembic upgrade head
 python seed.py
 ```
 
-> `seed.py` is idempotent — safe to run multiple times. It adds categories, locations, users, and three sample drone items.
+> `seed.py` is idempotent — safe to run multiple times. It loads the full drone lab demo dataset:
+> - **6 categories:** Drones, Cameras & Payloads, Batteries & Power, Controllers & Comms, Tools & Maintenance, Safety Equipment
+> - **5 locations:** Drone Cage A, Drone Cage B, Lab Bench, Charging Station, Storage Cabinet
+> - **5 users:** 1 admin, 1 instructor, 3 students
+> - **20 items:** DJI Matrice 300 RTK, Matrice 30T, Avata 2 FPV, Zenmuse cameras, TB60 batteries, smart controllers, FPV goggles, tools, and safety gear
 
 **Start the backend:**
 
@@ -213,7 +217,11 @@ alembic upgrade head
 python seed.py
 ```
 
-> `seed.py` is idempotent — safe to run multiple times. It adds categories, locations, users, and three sample drone items.
+> `seed.py` is idempotent — safe to run multiple times. It loads the full drone lab demo dataset:
+> - **6 categories:** Drones, Cameras & Payloads, Batteries & Power, Controllers & Comms, Tools & Maintenance, Safety Equipment
+> - **5 locations:** Drone Cage A, Drone Cage B, Lab Bench, Charging Station, Storage Cabinet
+> - **5 users:** 1 admin, 1 instructor, 3 students
+> - **20 items:** DJI Matrice 300 RTK, Matrice 30T, Avata 2 FPV, Zenmuse cameras, TB60 batteries, smart controllers, FPV goggles, tools, and safety gear
 
 **Start the backend:**
 

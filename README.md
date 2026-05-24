@@ -10,7 +10,7 @@ A web-based inventory management system built for the SAFCSP drone lab. It track
 - **Check-out / check-in** — Users can borrow items and return them. Returns record condition on return and optionally capture notes.
 - **QR codes** — Each item gets a generated QR code tied to its asset code. Scanning a QR code opens the item's detail page directly.
 - **Transaction history** — Every check-out and check-in is logged with timestamps, the user involved, quantity, and notes.
-- **Categories & locations** — Items are organised by category (e.g. Drones, Sensors) and physical location (e.g. Drone Cage A, Lab Bench 2).
+- **Categories & locations** — Items are organised by category (e.g. Drones, Cameras & Payloads, Batteries & Power) and physical location (e.g. Drone Cage A, Charging Station, Lab Bench).
 - **Dashboard** — At-a-glance summary of total items, available stock, checked-out items, and recent activity.
 
 ---

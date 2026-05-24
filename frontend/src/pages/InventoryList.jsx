@@ -16,7 +16,7 @@ export default function InventoryList() {
   const [locations, setLocations] = useState([]);
   const [users, setUsers] = useState([]);
   const [query, setQuery] = useState("");
-  const [availabilityFilter, setAvailabilityFilter] = useState("");
+  const [conditionFilter, setConditionFilter] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [checkoutItem, setCheckoutItem] = useState(null);
@@ -50,18 +50,17 @@ export default function InventoryList() {
   const filteredItems = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return items.filter((item) => {
-      const availabilityStatus = item.available_quantity < item.quantity ? "checked_out" : "available";
-      if (availabilityFilter && availabilityFilter !== availabilityStatus) {
+      if (conditionFilter && item.condition !== conditionFilter) {
         return false;
       }
       if (!normalized) {
         return true;
       }
-      return [item.asset_code, item.name, item.serial_number, availabilityStatus]
+      return [item.asset_code, item.name, item.serial_number, item.condition]
         .filter(Boolean)
         .some((value) => value.toLowerCase().includes(normalized));
     });
-  }, [items, query, availabilityFilter]);
+  }, [items, query, conditionFilter]);
 
   async function checkout(payload) {
     await itemsApi.checkout(checkoutItem.id, payload);
@@ -88,11 +87,13 @@ export default function InventoryList() {
       </div>
 
       <div className="toolbar">
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search asset, name, serial, status" />
-        <select value={availabilityFilter} onChange={(event) => setAvailabilityFilter(event.target.value)}>
-          <option value="">All statuses</option>
-          <option value="available">Available</option>
-          <option value="checked_out">Checked out</option>
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search asset, name, serial, condition" />
+        <select value={conditionFilter} onChange={(event) => setConditionFilter(event.target.value)}>
+          <option value="">All conditions</option>
+          <option value="excellent">Excellent</option>
+          <option value="good">Good</option>
+          <option value="fair">Fair</option>
+          <option value="poor">Poor</option>
         </select>
       </div>
 

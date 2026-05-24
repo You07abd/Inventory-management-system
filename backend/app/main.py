@@ -25,7 +25,13 @@ app.add_middleware(
 
 @app.on_event("startup")
 def on_startup():
-    Base.metadata.create_all(bind=engine)
+    from alembic.config import Config
+    from alembic import command as alembic_command
+    alembic_cfg = Config(os.path.join(os.path.dirname(__file__), "..", "alembic.ini"))
+    alembic_command.upgrade(alembic_cfg, "head")
+
+    from seed import seed
+    seed()
 
 
 @app.get("/health")

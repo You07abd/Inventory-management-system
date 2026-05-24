@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(docker *)"
+      "Bash(docker *)",
+      "Skill(codex:rescue)"
     ]
   }
 }
