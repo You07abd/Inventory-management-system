@@ -9,9 +9,7 @@ export default function CheckinModal({ item, users, onClose, onSubmit }) {
   });
   const [saving, setSaving] = useState(false);
 
-  if (!item) {
-    return null;
-  }
+  if (!item) return null;
 
   const maxQuantity = Math.max((item.quantity || 0) - (item.available_quantity || 0), 0);
 
@@ -39,53 +37,40 @@ export default function CheckinModal({ item, users, onClose, onSubmit }) {
       <form className="modal" onSubmit={submit}>
         <div className="modal-header">
           <div>
-            <span className="label">Checkin</span>
+            <div style={{ fontSize: "10px", fontWeight: 600, color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: "3px" }}>Check In</div>
             <h2>{item.name}</h2>
           </div>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
-            X
-          </button>
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Close">×</button>
         </div>
-        <label>
-          User
-          <select value={form.user_id} onChange={(event) => update("user_id", event.target.value)} required>
+        <div className="form-group">
+          <label className="form-label">User</label>
+          <select className="form-select" value={form.user_id} onChange={(e) => update("user_id", e.target.value)} required>
             {users.map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.name} ({user.role})
-              </option>
+              <option key={user.id} value={user.id}>{user.name} ({user.role})</option>
             ))}
           </select>
-        </label>
-        <label>
-          Quantity
-          <input
-            type="number"
-            min="1"
-            max={maxQuantity}
-            value={form.quantity}
-            onChange={(event) => update("quantity", event.target.value)}
-            required
-          />
-        </label>
-        <label>
-          Return Condition
-          <select value={form.condition_on_return} onChange={(event) => update("condition_on_return", event.target.value)}>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Quantity</label>
+          <input className="form-input" type="number" min="1" max={maxQuantity} value={form.quantity} onChange={(e) => update("quantity", e.target.value)} required />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Return Condition</label>
+          <select className="form-select" value={form.condition_on_return} onChange={(e) => update("condition_on_return", e.target.value)}>
             <option value="excellent">Excellent</option>
             <option value="good">Good</option>
             <option value="needs_inspection">Needs inspection</option>
             <option value="damaged">Damaged</option>
           </select>
-        </label>
-        <label>
-          Notes
-          <textarea value={form.notes} onChange={(event) => update("notes", event.target.value)} rows="3" />
-        </label>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Notes</label>
+          <textarea className="form-textarea" value={form.notes} onChange={(e) => update("notes", e.target.value)} rows="3" />
+        </div>
         <div className="modal-actions">
-          <button type="button" className="secondary" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="submit" disabled={saving || maxQuantity < 1 || users.length === 0}>
-            {saving ? "Saving" : "Checkin"}
+          <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn btn-primary" disabled={saving || maxQuantity < 1 || users.length === 0}>
+            {saving ? "Saving…" : "Check In"}
           </button>
         </div>
       </form>

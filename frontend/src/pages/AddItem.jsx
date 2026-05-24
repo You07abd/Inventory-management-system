@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-
+import { Link, useNavigate } from "react-router-dom";
 import { categoriesApi } from "../api/categories";
 import { getErrorMessage } from "../api/client";
 import { itemsApi } from "../api/items";
@@ -19,7 +18,7 @@ export default function AddItem() {
     quantity: 1,
     condition: "good",
     category_id: "",
-    location_id: ""
+    location_id: "",
   });
 
   useEffect(() => {
@@ -53,7 +52,7 @@ export default function AddItem() {
         condition: form.condition,
         status: "available",
         category_id: form.category_id ? Number(form.category_id) : null,
-        location_id: form.location_id ? Number(form.location_id) : null
+        location_id: form.location_id ? Number(form.location_id) : null,
       };
       const item = await itemsApi.create(payload);
       navigate(`/items/${item.id}`);
@@ -65,68 +64,70 @@ export default function AddItem() {
   }
 
   return (
-    <section className="page-stack narrow">
-      <div className="page-header">
-        <div>
-          <span className="label">New Asset</span>
-          <h1>Add Inventory Item</h1>
+    <>
+      <div className="topbar">
+        <div className="topbar-left">
+          <span className="topbar-breadcrumb">Inventory</span>
+          <span className="topbar-title">Add Item</span>
         </div>
       </div>
-      {error && <div className="alert">{error}</div>}
-      <form className="form-grid" onSubmit={submit}>
-        <label className="wide">
-          Name
-          <input value={form.name} onChange={(event) => update("name", event.target.value)} required />
-        </label>
-        <label className="wide">
-          Description
-          <textarea value={form.description} onChange={(event) => update("description", event.target.value)} rows="3" />
-        </label>
-        <label>
-          Serial Number
-          <input value={form.serial_number} onChange={(event) => update("serial_number", event.target.value)} />
-        </label>
-        <label>
-          Quantity
-          <input type="number" min="1" value={form.quantity} onChange={(event) => update("quantity", event.target.value)} required />
-        </label>
-        <label>
-          Condition
-          <select value={form.condition} onChange={(event) => update("condition", event.target.value)}>
-            <option value="excellent">Excellent</option>
-            <option value="good">Good</option>
-            <option value="needs_inspection">Needs inspection</option>
-            <option value="damaged">Damaged</option>
-          </select>
-        </label>
-        <label>
-          Category
-          <select value={form.category_id} onChange={(event) => update("category_id", event.target.value)}>
-            <option value="">Unassigned</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Location
-          <select value={form.location_id} onChange={(event) => update("location_id", event.target.value)}>
-            <option value="">Unassigned</option>
-            {locations.map((location) => (
-              <option key={location.id} value={location.id}>
-                {location.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="form-actions wide">
-          <button type="submit" disabled={saving}>
-            {saving ? "Saving" : "Create Item"}
-          </button>
-        </div>
-      </form>
-    </section>
+
+      <div className="page-content">
+        {error && <div className="alert" style={{ marginBottom: "16px" }}>{error}</div>}
+        <form className="form-card" onSubmit={submit}>
+          <div className="form-grid">
+            <div className="form-group wide">
+              <label className="form-label">Name</label>
+              <input className="form-input" value={form.name} onChange={(e) => update("name", e.target.value)} required />
+            </div>
+            <div className="form-group wide">
+              <label className="form-label">Description</label>
+              <textarea className="form-textarea" value={form.description} onChange={(e) => update("description", e.target.value)} rows="3" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Serial Number</label>
+              <input className="form-input" value={form.serial_number} onChange={(e) => update("serial_number", e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Quantity</label>
+              <input className="form-input" type="number" min="1" value={form.quantity} onChange={(e) => update("quantity", e.target.value)} required />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Condition</label>
+              <select className="form-select" value={form.condition} onChange={(e) => update("condition", e.target.value)}>
+                <option value="excellent">Excellent</option>
+                <option value="good">Good</option>
+                <option value="fair">Fair</option>
+                <option value="poor">Poor</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Category</label>
+              <select className="form-select" value={form.category_id} onChange={(e) => update("category_id", e.target.value)}>
+                <option value="">Unassigned</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>{category.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Location</label>
+              <select className="form-select" value={form.location_id} onChange={(e) => update("location_id", e.target.value)}>
+                <option value="">Unassigned</option>
+                {locations.map((location) => (
+                  <option key={location.id} value={location.id}>{location.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="form-actions">
+            <Link className="btn btn-secondary" to="/inventory">Cancel</Link>
+            <button type="submit" className="btn btn-primary" disabled={saving}>
+              {saving ? "Saving…" : "Create Item"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </>
   );
 }

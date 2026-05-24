@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-
-import { getErrorMessage } from "../api/client";
 import { categoriesApi } from "../api/categories";
+import { getErrorMessage } from "../api/client";
 import { itemsApi } from "../api/items";
 import { transactionsApi } from "../api/transactions";
 import { usersApi } from "../api/users";
@@ -16,127 +15,125 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      setError("");
+    (async () => {
       try {
-        const [itemData, categoryData, transactionData, userData] = await Promise.all([
+        const [itemData, catData, txData, userData] = await Promise.all([
           itemsApi.list(),
           categoriesApi.list(),
           transactionsApi.list({ limit: 8 }),
-          usersApi.list()
+          usersApi.list(),
         ]);
         setItems(itemData);
-        setCategories(categoryData);
-        setTransactions(transactionData);
+        setCategories(catData);
+        setTransactions(txData);
         setUsers(userData);
       } catch (err) {
         setError(getErrorMessage(err));
       } finally {
         setLoading(false);
       }
-    }
-    load();
+    })();
   }, []);
 
-  const stats = useMemo(() => {
-    const totalUnits = items.reduce((sum, item) => sum + item.quantity, 0);
-    const availableUnits = items.reduce((sum, item) => sum + item.available_quantity, 0);
-    const checkedOutUnits = totalUnits - availableUnits;
-    const needsInspection = items.filter((item) => item.condition === "needs_inspection" || item.condition === "damaged").length;
-    return { totalUnits, availableUnits, checkedOutUnits, needsInspection };
-  }, [items]);
+  const totalUnits = items.reduce((s, i) => s + i.quantity, 0);
+  const availableUnits = items.reduce((s, i) => s + i.available_quantity, 0);
+  const checkedOut = totalUnits - availableUnits;
+
+  const catCounts = categories.map((c) => ({
+    name: c.name,
+    count: items.filter((i) => i.category_id === c.id).length,
+  })).filter((c) => c.count > 0);
+  const maxCount = Math.max(...catCounts.map((c) => c.count), 1);
 
   return (
-    <section className="page-stack">
-      <div className="page-header">
-        <div>
-          <span className="label">Live Inventory</span>
-          <h1>Drone Lab Dashboard</h1>
+    <>
+      <div className="topbar">
+        <div className="topbar-left">
+          <span className="topbar-breadcrumb">Overview</span>
+          <span className="topbar-title">Dashboard</span>
         </div>
-        <Link className="button-link" to="/inventory/new">
-          Add Item
-        </Link>
+        <div className="topbar-actions">
+          <Link className="btn btn-primary" to="/inventory/new">Add Item</Link>
+        </div>
       </div>
 
-      {error && <div className="alert">{error}</div>}
-      {loading ? <div className="loading">Loading dashboard...</div> : null}
-
-      <div className="metric-grid">
-        <article className="metric">
-          <span>Total Units</span>
-          <strong>{stats.totalUnits}</strong>
-        </article>
-        <article className="metric">
-          <span>Available</span>
-          <strong>{stats.availableUnits}</strong>
-        </article>
-        <article className="metric">
-          <span>Checked Out</span>
-          <strong>{stats.checkedOutUnits}</strong>
-        </article>
-        <article className="metric">
-          <span>Needs Review</span>
-          <strong>{stats.needsInspection}</strong>
-        </article>
-      </div>
-
-      <div className="split-grid">
-        <section className="panel">
-          <div className="panel-header">
-            <h2>Inventory Mix</h2>
-            <span>{categories.length} categories</span>
-          </div>
-          <div className="category-list">
-            {categories.map((category) => {
-              const count = items.filter((item) => item.category_id === category.id).length;
-              return (
-                <div key={category.id} className="category-row">
-                  <span>{category.name}</span>
-                  <strong>{count}</strong>
-                </div>
-              );
-            })}
-            {categories.length === 0 && <div className="empty-state">No categories yet.</div>}
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="panel-header">
-            <h2>Recent Transactions</h2>
-            <Link to="/transactions">View all</Link>
-          </div>
-          <div className="activity-list">
-            {transactions.map((transaction) => (
-              <div key={transaction.id} className="activity-row">
-                <span className={`status ${transaction.type}`}>{transaction.type}</span>
-                <div>
-                  <strong>Item #{transaction.item_id}</strong>
-                  <small>
-                    User #{transaction.user_id} · Qty {transaction.quantity}
-                  </small>
+      <div className="page-content">
+        {error && <div className="alert">{error}</div>}
+        {loading ? (
+          <div className="loading">Loading dashboard...</div>
+        ) : (
+          <div className="page-stack">
+            <div className="metric-grid">
+              <div className="metric-card">
+                <div className="metric-label">Total Assets</div>
+                <div className="metric-value metric-value--blue">{items.length}</div>
+                <div className="metric-footer">Across {categories.length} categories</div>
+              </div>
+              <div className="metric-card">
+                <div className="metric-label">Available</div>
+                <div className="metric-value metric-value--green">{availableUnits}</div>
+                <div className="metric-footer">
+                  <span className="metric-dot" style={{ background: "#22c55e" }} />
+                  {totalUnits > 0 ? Math.round((availableUnits / totalUnits) * 100) : 0}% availability
                 </div>
               </div>
-            ))}
-            {transactions.length === 0 && <div className="empty-state">No transactions yet.</div>}
-          </div>
-        </section>
-      </div>
+              <div className="metric-card">
+                <div className="metric-label">Checked Out</div>
+                <div className="metric-value">{checkedOut}</div>
+                <div className="metric-footer">{checkedOut === 0 ? "No active loans" : "Active loans"}</div>
+              </div>
+              <div className="metric-card">
+                <div className="metric-label">Locations</div>
+                <div className="metric-value" style={{ color: "#7c3aed" }}>{users.length}</div>
+                <div className="metric-footer">Registered users</div>
+              </div>
+            </div>
 
-      <section className="panel">
-        <div className="panel-header">
-          <h2>Lab Users</h2>
-          <span>{users.length} registered</span>
-        </div>
-        <div className="user-pills">
-          {users.map((user) => (
-            <span key={user.id}>
-              {user.name} · {user.role}
-            </span>
-          ))}
-          {users.length === 0 && <div className="empty-state">No users yet.</div>}
-        </div>
-      </section>
-    </section>
+            <div className="panel-row">
+              <div className="panel">
+                <div className="panel-head">
+                  <h3>Inventory by Category</h3>
+                  <span>{catCounts.length} categories</span>
+                </div>
+                <div className="panel-body">
+                  {catCounts.map((c) => (
+                    <div key={c.name} className="cat-row">
+                      <span className="cat-name">{c.name}</span>
+                      <div className="cat-bar-wrap">
+                        <div className="cat-bar" style={{ width: `${(c.count / maxCount) * 100}%` }} />
+                      </div>
+                      <span className="cat-count">{c.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="panel">
+                <div className="panel-head">
+                  <h3>Recent Activity</h3>
+                  <span>Last {transactions.length} events</span>
+                </div>
+                <div className="panel-body">
+                  {transactions.length === 0 && <p className="empty-state" style={{ padding: "12px 0", border: "none", textAlign: "left" }}>No transactions yet.</p>}
+                  {transactions.map((tx) => (
+                    <div key={tx.id} className="activity-row">
+                      <div className={`activity-dot activity-dot--${tx.type === "checkout" ? "out" : "in"}`} />
+                      <div>
+                        <div className="activity-text">
+                          <strong>{tx.type === "checkout" ? "Check Out" : "Check In"}</strong>
+                          {" — "}{tx.item_id && `Item #${tx.item_id}`}
+                          {tx.quantity > 1 && ` ×${tx.quantity}`}
+                        </div>
+                        <div className="activity-time">{new Date(tx.created_at).toLocaleString()}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
