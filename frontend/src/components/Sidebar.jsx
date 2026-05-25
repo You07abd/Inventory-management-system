@@ -96,7 +96,7 @@ function NavItem({ item, collapsed, isStudent }) {
   return (
     <NavLink
       to={item.to}
-      end={item.to === "/"}
+      end={item.to === "/" || item.to === "/inventory"}
       className={({ isActive }) => `nav-item${isActive ? " nav-item--active" : ""}`}
     >
       <span className="nav-icon">{item.icon}</span>
