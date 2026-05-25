@@ -140,18 +140,20 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div className="sidebar-footer">
-        <div className="sidebar-account">
-          <div className="sidebar-avatar">{ROLE_INITIALS[role]}</div>
-          {!collapsed && (
-            <div className="sidebar-account-info">
-              <div className="sidebar-account-name">{ROLE_LABELS[role]}</div>
-              <button type="button" className="sidebar-logout" onClick={handleLogout}>
-                Sign out
-              </button>
-            </div>
-          )}
-        </div>
+      <div className="sidebar-footer" style={collapsed ? { justifyContent: 'center' } : {}}>
+        {!collapsed && (
+          <div className="sidebar-account">
+            <div className="sidebar-avatar">{ROLE_INITIALS[role]}</div>
+            {!collapsed && (
+              <div className="sidebar-account-info">
+                <div className="sidebar-account-name">{ROLE_LABELS[role]}</div>
+                <button type="button" className="sidebar-logout" onClick={handleLogout}>
+                  Sign out
+                </button>
+              </div>
+            )}
+          </div>
+        )}
         <button
           type="button"
           className="sidebar-toggle"
