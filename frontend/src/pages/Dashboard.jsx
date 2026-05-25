@@ -84,7 +84,7 @@ export default function Dashboard() {
               </div>
               <div className="metric-card">
                 <div className="metric-label">Locations</div>
-                <div className="metric-value" style={{ color: "#7c3aed" }}>{users.length}</div>
+                <div className="metric-value">{users.length}</div>
                 <div className="metric-footer">Registered users</div>
               </div>
             </div>
