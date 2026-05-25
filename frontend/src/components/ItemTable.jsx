@@ -103,11 +103,11 @@ export default function ItemTable({ items, categories = [], locations = [], onCh
                 </span>
               </td>
               <td>
-                <div className="row-actions">
-                  <button className="row-btn row-btn--primary" onClick={() => onCheckout(item)} disabled={item.available_quantity < 1}>
+                <div className="row-actions" style={{ flexDirection: 'column', gap: '4px' }}>
+                  <button className="row-btn row-btn--primary" style={{ padding: '3px 8px', fontSize: '11px' }} onClick={() => onCheckout(item)} disabled={item.available_quantity < 1}>
                     Check Out
                   </button>
-                  <button className="row-btn" onClick={() => onCheckin(item)} disabled={checkedOut < 1}>
+                  <button className="row-btn" style={{ padding: '3px 8px', fontSize: '11px' }} onClick={() => onCheckin(item)} disabled={checkedOut < 1}>
                     Check In
                   </button>
                 </div>
