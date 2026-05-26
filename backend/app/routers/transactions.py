@@ -12,6 +12,7 @@ router = APIRouter(prefix="/transactions", tags=["transactions"])
 @router.get("/", response_model=list[TransactionSchema])
 def list_transactions(
     item_id: int | None = None,
+    session_id: str | None = None,
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
@@ -19,6 +20,8 @@ def list_transactions(
     query = db.query(Transaction)
     if item_id is not None:
         query = query.filter(Transaction.item_id == item_id)
+    if session_id is not None:
+        query = query.filter(Transaction.session_id == session_id)
     return query.order_by(Transaction.created_at.desc()).offset(skip).limit(limit).all()
 
 
