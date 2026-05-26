@@ -76,7 +76,7 @@ export default function CheckOutMode() {
   const [receipt, setReceipt] = useState(null);
   const [itemsOpen, setItemsOpen] = useState(true);
   const [cartOpen, setCartOpen] = useState(true);
-  const [viewMode, setViewMode] = useState("list");
+  const [viewMode, setViewMode] = useState("grid");
   const [gridPage, setGridPage] = useState("categories");
   const [selectedCategory, setSelectedCategory] = useState(null);
 
@@ -225,7 +225,7 @@ export default function CheckOutMode() {
             onClick={() => switchView("grid")}
             style={{ whiteSpace: "nowrap" }}
           >
-            Browse
+            Grid
           </button>
         </div>
       </div>

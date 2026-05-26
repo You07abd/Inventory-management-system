@@ -81,7 +81,7 @@ export default function CheckInMode() {
   const [submitError, setSubmitError] = useState(null);
   const [receipt, setReceipt] = useState(null);
   const [loadError, setLoadError] = useState(null);
-  const [viewMode, setViewMode] = useState("list");
+  const [viewMode, setViewMode] = useState("grid");
   const [ciGridPage, setCiGridPage] = useState("categories");
   const [ciSelectedCat, setCiSelectedCat] = useState(null);
 
@@ -229,7 +229,7 @@ export default function CheckInMode() {
             onClick={() => switchCiView("grid")}
             style={{ whiteSpace: "nowrap" }}
           >
-            Browse
+            Grid
           </button>
         </div>
       </div>
