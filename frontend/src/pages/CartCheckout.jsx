@@ -3,6 +3,8 @@ import { getErrorMessage } from "../api/client";
 import { itemsApi } from "../api/items";
 import { usersApi } from "../api/users";
 
+const emptyForm = { user_id: "", due_date: "", notes: "", destination: "" };
+
 function statusBadgeStyle(status) {
   const styles = {
     available: { background: "#d1fae5", color: "#065f46" },
@@ -16,10 +18,20 @@ function badgeLabel(value) {
   return String(value || "").replace(/_/g, " ");
 }
 
+function pluralize(count, word) {
+  return `${count} ${word}${count === 1 ? "" : "s"}`;
+}
+
+function disabledReason(item, cartItemIds) {
+  if (cartItemIds.has(item.id)) return "Already added";
+  if (item.available_quantity <= 0) return "Unavailable";
+  return null;
+}
+
 export default function CartCheckout() {
   const [cart, setCart] = useState([]);
   const [users, setUsers] = useState([]);
-  const [form, setForm] = useState({ user_id: "", due_date: "", notes: "", destination: "" });
+  const [form, setForm] = useState(emptyForm);
   const [receipt, setReceipt] = useState(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
@@ -42,14 +54,6 @@ export default function CartCheckout() {
   }, []);
 
   useEffect(() => {
-    return () => {
-      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-
     const trimmed = query.trim();
     if (!trimmed) {
       setResults([]);
@@ -118,7 +122,7 @@ export default function CartCheckout() {
       // Capture cart snapshot before clearing so the receipt can display item names/codes
       setReceipt({ ...result, cartItems: cart });
       setCart([]);
-      setForm({ user_id: "", due_date: "", notes: "", destination: "" });
+      setForm(emptyForm);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -225,8 +229,7 @@ export default function CartCheckout() {
                     </div>
                   ) : (
                     results.map((item) => {
-                      const alreadyInCart = cartItemIds.has(item.id);
-                      const unavailable = item.available_quantity <= 0;
+                      const disabledLabel = disabledReason(item, cartItemIds);
                       return (
                         <div
                           key={item.id}
@@ -257,23 +260,14 @@ export default function CartCheckout() {
                               {badgeLabel(item.status)}
                             </span>
                           </span>
-                          {alreadyInCart ? (
+                          {disabledLabel ? (
                             <button
                               type="button"
                               className="btn btn-secondary"
                               disabled
                               style={{ opacity: 0.5, cursor: "not-allowed", minWidth: "100px" }}
                             >
-                              Already added
-                            </button>
-                          ) : unavailable ? (
-                            <button
-                              type="button"
-                              className="btn btn-secondary"
-                              disabled
-                              style={{ opacity: 0.5, cursor: "not-allowed", minWidth: "100px" }}
-                            >
-                              Unavailable
+                              {disabledLabel}
                             </button>
                           ) : (
                             <button
@@ -305,7 +299,7 @@ export default function CartCheckout() {
                 }}
               >
                 <div style={{ fontSize: "18px", fontWeight: 700, marginBottom: "14px" }}>
-                  Cart ({cart.length} item{cart.length !== 1 ? "s" : ""})
+                  Cart ({pluralize(cart.length, "item")})
                 </div>
                 <table>
                   <thead>
@@ -420,14 +414,11 @@ export default function CartCheckout() {
                     className="btn btn-primary"
                     disabled={submitting || !form.user_id || cart.length === 0}
                   >
-                    {submitting
-                      ? "Saving…"
-                      : `Check Out All (${cart.length} item${cart.length !== 1 ? "s" : ""})`}
+                    {submitting ? "Saving…" : `Check Out All (${pluralize(cart.length, "item")})`}
                   </button>
                 </form>
               </div>
             )}
-
           </>
         )}
       </div>

@@ -17,7 +17,7 @@ from app.models.user import User
 from app.schemas.item import CheckinRequest, CheckoutRequest
 from app.schemas.item import Item as ItemSchema
 from app.schemas.item import ItemCreate, ItemUpdate
-from app.schemas.transaction import CartCheckoutRequest, CartCheckoutResponse
+from app.schemas.transaction import CartCheckoutItem, CartCheckoutRequest, CartCheckoutResponse
 from app.schemas.transaction import Transaction as TransactionSchema
 
 
@@ -125,17 +125,11 @@ def get_item_by_asset_code(code: str, db: Session = Depends(get_db)):
     return item
 
 
-@router.post("/cart-checkout", response_model=CartCheckoutResponse, status_code=status.HTTP_201_CREATED)
-def cart_checkout(payload: CartCheckoutRequest, db: Session = Depends(get_db)):
-    """Check out multiple items to one user atomically in a single cart transaction."""
-    user = db.get(User, payload.user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found.")
-
-    # Pre-validate ALL items before touching the DB so failures are all-or-nothing
+def _resolve_cart_items(db: Session, entries: list[CartCheckoutItem]) -> list[tuple[Item, int]]:
+    """Validate every cart entry and return (item, quantity) pairs. Raises on any issue."""
     seen_ids: set[int] = set()
-    rows = []
-    for entry in payload.items:
+    rows: list[tuple[Item, int]] = []
+    for entry in entries:
         if entry.item_id in seen_ids:
             raise HTTPException(
                 status_code=400,
@@ -154,9 +148,20 @@ def cart_checkout(payload: CartCheckoutRequest, db: Session = Depends(get_db)):
                 ),
             )
         rows.append((item, entry.quantity))
+    return rows
+
+
+@router.post("/cart-checkout", response_model=CartCheckoutResponse, status_code=status.HTTP_201_CREATED)
+def cart_checkout(payload: CartCheckoutRequest, db: Session = Depends(get_db)):
+    """Check out multiple items to one user atomically in a single cart transaction."""
+    if not db.get(User, payload.user_id):
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    # Pre-validate ALL items before touching the DB so failures are all-or-nothing.
+    rows = _resolve_cart_items(db, payload.items)
 
     session_id = str(uuid4())
-    created = []
+    created: list[Transaction] = []
     for item, qty in rows:
         item.available_quantity -= qty
         item.current_holder_id = payload.user_id
