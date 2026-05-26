@@ -33,4 +33,9 @@ class Item(Base):
     current_holder = relationship("User", back_populates="held_items", foreign_keys=[current_holder_id])
     category = relationship("Category", back_populates="items")
     location = relationship("Location", back_populates="items")
+
+    @property
+    def location_name(self) -> str | None:
+        return self.location.name if self.location else None
+
     transactions = relationship("Transaction", back_populates="item", cascade="all, delete-orphan")
