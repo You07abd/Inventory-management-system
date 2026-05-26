@@ -21,7 +21,7 @@ A web-based inventory management system built for the SAFCSP drone lab. It track
 |---|---|
 | Frontend | React 18, Vite, React Router, Axios |
 | Backend | Python, FastAPI, SQLAlchemy, Alembic |
-| Database | PostgreSQL (hosted on Coolify) |
+| Database | PostgreSQL |
 | QR codes | `qrcode` + `Pillow` (generated server-side) |
 
 ---
@@ -41,8 +41,8 @@ Inventory_management_system/
 │   └── requirements.txt
 └── frontend/
     ├── src/
-    │   ├── pages/         ← Dashboard, InventoryList, ItemDetail, AddItem, Transactions, QRLookup
-    │   ├── components/    ← Navbar, ItemTable, CheckoutModal, CheckinModal, QRCodeDisplay
+    │   ├── pages/         ← Dashboard, Inventory, CheckoutDesk, Transactions, QRLookup
+    │   ├── components/    ← Sidebar, layout components
     │   └── api/           ← Axios API client wrappers
     └── package.json
 ```
@@ -63,4 +63,275 @@ The backend exposes a REST API at `http://localhost:8000`. Interactive docs (Swa
 
 ---
 
-> For setup and running instructions, see **[HOW_TO_RUN.md](HOW_TO_RUN.md)**.
+## Getting Started
+
+Choose your platform:
+
+- [Windows](#windows)
+- [Linux](#linux)
+
+### Database Options
+
+The backend connects to PostgreSQL via a `DATABASE_URL` environment variable. You can use either:
+
+| Option | When to use |
+|---|---|
+| **Local (Docker)** | Demo, development, offline work — no credentials needed |
+| **Remote (self-hosted)** | Shared team database, production data |
+
+Both options work identically once `DATABASE_URL` in `backend/.env` is set. You can switch between them at any time by editing that one line.
+
+---
+
+### Prerequisites
+
+| Tool | Required for | Version |
+|---|---|---|
+| Python | Backend | 3.10+ |
+| Node.js + npm | Frontend | 18+ |
+| Docker Desktop | Local DB only | any recent |
+| Git | Both | any |
+
+> If you are using a remote database you do **not** need Docker.
+
+---
+
+### Windows
+
+#### Step 1 — Start the database
+
+**Option A — Local database (Docker, recommended for demos)**
+
+Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) if you haven't already, then from the project root:
+
+```powershell
+docker compose up -d
+```
+
+Copy the pre-filled local env file:
+
+```powershell
+Copy-Item backend\.env.local.example backend\.env
+```
+
+**Option B — Remote database**
+
+```powershell
+Copy-Item backend\.env.example backend\.env
+```
+
+Open `backend/.env` and fill in your credentials:
+```env
+DATABASE_URL=postgresql+psycopg2://<user>:<password>@<host>:<port>/<dbname>
+FRONTEND_ORIGIN=http://localhost:5173
+```
+
+---
+
+#### Step 2 — Backend setup
+
+```powershell
+cd backend
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+> If you get a script execution error run:
+> `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
+
+Run migrations (creates all tables):
+
+```powershell
+alembic upgrade head
+```
+
+Seed sample data (local DB only — skip if using a remote DB with real data):
+
+```powershell
+python seed.py
+```
+
+> `seed.py` is idempotent — safe to run multiple times. It loads a full demo dataset: 6 categories, 5 locations, 5 users, and 20 items.
+
+Start the backend:
+
+```powershell
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+API: **http://localhost:8000** | Docs: **http://localhost:8000/docs**
+
+---
+
+#### Step 3 — Frontend setup
+
+Open a **new terminal** (keep the backend running):
+
+```powershell
+cd frontend
+npm install
+Copy-Item .env.example .env
+npm run dev
+```
+
+App: **http://localhost:5173**
+
+---
+
+#### Quick Reference (Windows)
+
+**Terminal 1 — Backend**
+```powershell
+cd backend
+.\venv\Scripts\Activate.ps1
+uvicorn app.main:app --reload --port 8000
+```
+
+**Terminal 2 — Frontend**
+```powershell
+cd frontend
+npm run dev
+```
+
+**Stop local Docker DB when done:**
+```powershell
+docker compose down
+```
+
+---
+
+### Linux
+
+#### Step 1 — Start the database
+
+**Option A — Local database (Docker, recommended for demos)**
+
+```bash
+sudo apt install docker.io docker-compose-plugin   # Debian/Ubuntu
+# or follow https://docs.docker.com/engine/install/
+```
+
+```bash
+docker compose up -d
+cp backend/.env.local.example backend/.env
+```
+
+**Option B — Remote database**
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+Open `backend/.env` and fill in your credentials:
+```env
+DATABASE_URL=postgresql+psycopg2://<user>:<password>@<host>:<port>/<dbname>
+FRONTEND_ORIGIN=http://localhost:5173
+```
+
+---
+
+#### Step 2 — Backend setup
+
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+alembic upgrade head
+python seed.py   # local DB only
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+API: **http://localhost:8000** | Docs: **http://localhost:8000/docs**
+
+---
+
+#### Step 3 — Frontend setup
+
+Open a **new terminal** (keep the backend running):
+
+```bash
+cd frontend
+npm install
+cp .env.example .env
+npm run dev
+```
+
+App: **http://localhost:5173**
+
+---
+
+#### Quick Reference (Linux)
+
+**Terminal 1 — Backend**
+```bash
+cd backend
+source venv/bin/activate
+uvicorn app.main:app --reload --port 8000
+```
+
+**Terminal 2 — Frontend**
+```bash
+cd frontend
+npm run dev
+```
+
+**Stop local Docker DB when done:**
+```bash
+docker compose down
+```
+
+---
+
+## Switching Databases
+
+Edit one line in `backend/.env` and restart the backend — no code changes needed:
+
+```env
+# Local Docker
+DATABASE_URL=postgresql+psycopg2://inv_user:inv_pass@localhost:5432/drone_inventory
+
+# Remote (replace with real values)
+DATABASE_URL=postgresql+psycopg2://<user>:<password>@<host>:<port>/<dbname>
+```
+
+---
+
+## Useful Commands
+
+| Task | Command (run from `backend/` with venv active) |
+|---|---|
+| Apply migrations | `alembic upgrade head` |
+| New migration | `alembic revision --autogenerate -m "description"` |
+| Roll back one migration | `alembic downgrade -1` |
+| Re-seed sample data | `python seed.py` |
+| Start local DB | `docker compose up -d` (from project root) |
+| Stop local DB | `docker compose down` (from project root) |
+
+| Task | Command (run from `frontend/`) |
+|---|---|
+| Start dev server | `npm run dev` |
+| Production build | `npm run build` |
+| Preview production build | `npm run preview` |
+
+---
+
+## Troubleshooting
+
+**`DATABASE_URL is not configured`**
+→ `backend/.env` is missing. Copy from `.env.local.example` (local) or `.env.example` (remote) and fill it in.
+
+**`alembic` / `uvicorn` not found**
+→ Your virtual environment isn't active.
+- Windows: `.\venv\Scripts\Activate.ps1`
+- Linux: `source venv/bin/activate`
+
+**`could not connect to server` or `Connection refused` on port 5432**
+→ The Docker container isn't running. Run `docker compose up -d` from the project root and wait a few seconds.
+
+**Frontend shows network errors or blank data**
+→ Make sure the backend is running on port 8000 and `VITE_API_BASE_URL=http://localhost:8000` is set in `frontend/.env`.
+
+**`psycopg2` fails to install**
+→ The project uses `psycopg2-binary` (pre-compiled). Ensure you're on Python 3.10+ and that your venv is active.
