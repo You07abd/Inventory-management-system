@@ -71,6 +71,7 @@ export default function Transactions() {
                   <th><div style={{ padding: "9px 14px" }}>Returned</div></th>
                   <th><div style={{ padding: "9px 14px" }}>Created</div></th>
                   <th><div style={{ padding: "9px 14px" }}>Notes</div></th>
+                  <th><div style={{ padding: "9px 14px" }}>Session</div></th>
                 </tr>
               </thead>
               <tbody>
@@ -88,6 +89,24 @@ export default function Transactions() {
                     <td>{tx.returned_at ? new Date(tx.returned_at).toLocaleString() : "—"}</td>
                     <td>{new Date(tx.created_at).toLocaleString()}</td>
                     <td>{tx.notes || "—"}</td>
+                    <td>
+                      {tx.session_id ? (
+                        <span
+                          style={{
+                            fontFamily: "var(--font-mono)",
+                            fontSize: "11px",
+                            background: "#ede9fe",
+                            color: "#5b21b6",
+                            borderRadius: "4px",
+                            padding: "2px 6px",
+                            whiteSpace: "nowrap",
+                          }}
+                          title={tx.session_id}
+                        >
+                          {tx.session_id.slice(0, 8)}
+                        </span>
+                      ) : "—"}
+                    </td>
                   </tr>
                 ))}
               </tbody>

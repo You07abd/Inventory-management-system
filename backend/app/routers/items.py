@@ -1,6 +1,7 @@
 import base64
 from datetime import datetime
 from io import BytesIO
+from uuid import uuid4
 
 import qrcode
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -16,6 +17,7 @@ from app.models.user import User
 from app.schemas.item import CheckinRequest, CheckoutRequest
 from app.schemas.item import Item as ItemSchema
 from app.schemas.item import ItemCreate, ItemUpdate
+from app.schemas.transaction import CartCheckoutRequest, CartCheckoutResponse
 from app.schemas.transaction import Transaction as TransactionSchema
 
 
@@ -121,6 +123,63 @@ def get_item_by_asset_code(code: str, db: Session = Depends(get_db)):
     if not item:
         raise HTTPException(status_code=404, detail="Item not found.")
     return item
+
+
+@router.post("/cart-checkout", response_model=CartCheckoutResponse, status_code=status.HTTP_201_CREATED)
+def cart_checkout(payload: CartCheckoutRequest, db: Session = Depends(get_db)):
+    """Check out multiple items to one user atomically in a single cart transaction."""
+    user = db.get(User, payload.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    # Pre-validate ALL items before touching the DB so failures are all-or-nothing
+    seen_ids: set[int] = set()
+    rows = []
+    for entry in payload.items:
+        if entry.item_id in seen_ids:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Item {entry.item_id} appears more than once in the cart.",
+            )
+        seen_ids.add(entry.item_id)
+        item = db.get(Item, entry.item_id)
+        if not item:
+            raise HTTPException(status_code=400, detail=f"Item {entry.item_id} not found.")
+        if entry.quantity > item.available_quantity:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Item {item.asset_code}: requested {entry.quantity}, "
+                    f"only {item.available_quantity} available."
+                ),
+            )
+        rows.append((item, entry.quantity))
+
+    session_id = str(uuid4())
+    created = []
+    for item, qty in rows:
+        item.available_quantity -= qty
+        item.current_holder_id = payload.user_id
+        _set_status_from_availability(item)
+
+        tx = Transaction(
+            item_id=item.id,
+            user_id=payload.user_id,
+            type="checkout",
+            quantity=qty,
+            notes=payload.notes,
+            destination=payload.destination,
+            due_date=payload.due_date,
+            session_id=session_id,
+        )
+        db.add(tx)
+        created.append(tx)
+
+    db.commit()
+    for tx in created:
+        db.refresh(tx)
+
+    return CartCheckoutResponse(session_id=session_id, transactions=created)
 
 
 @router.get("/{item_id}", response_model=ItemSchema)

@@ -8,6 +8,7 @@ import ItemDetail from "./pages/ItemDetail.jsx";
 import Login from "./pages/Login.jsx";
 import QRLookup from "./pages/QRLookup.jsx";
 import CheckInOut from "./pages/CheckInOut.jsx";
+import CartCheckout from "./pages/CartCheckout.jsx";
 import Transactions from "./pages/Transactions.jsx";
 
 function ProtectedRoute({ children, allowStudent = true }) {
@@ -42,6 +43,7 @@ function AppShell() {
           <Route path="/items/:itemId" element={<ProtectedRoute><ItemDetail /></ProtectedRoute>} />
           <Route path="/qr-lookup" element={<ProtectedRoute allowStudent={false}><QRLookup /></ProtectedRoute>} />
           <Route path="/check-in-out" element={<ProtectedRoute><CheckInOut /></ProtectedRoute>} />
+          <Route path="/cart-checkout" element={<ProtectedRoute><CartCheckout /></ProtectedRoute>} />
           <Route path="/transactions" element={<ProtectedRoute allowStudent={false}><Transactions /></ProtectedRoute>} />
           <Route path="/login" element={<Login />} />
           <Route path="*" element={<Navigate to={role === "student" ? "/inventory" : "/"} replace />} />

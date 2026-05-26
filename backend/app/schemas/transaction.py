@@ -13,6 +13,7 @@ class TransactionBase(BaseModel):
     condition_on_return: str | None = None
     due_date: datetime | None = None
     returned_at: datetime | None = None
+    session_id: str | None = None
 
 
 class TransactionCreate(TransactionBase):
@@ -24,3 +25,23 @@ class Transaction(TransactionBase):
 
     id: int
     created_at: datetime
+
+
+# Cart checkout schemas
+
+class CartCheckoutItem(BaseModel):
+    item_id: int
+    quantity: int = Field(default=1, ge=1)
+
+
+class CartCheckoutRequest(BaseModel):
+    items: list[CartCheckoutItem] = Field(min_length=1)
+    user_id: int
+    notes: str | None = None
+    destination: str | None = None
+    due_date: datetime | None = None
+
+
+class CartCheckoutResponse(BaseModel):
+    session_id: str
+    transactions: list[Transaction]

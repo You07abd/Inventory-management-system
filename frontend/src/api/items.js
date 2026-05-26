@@ -8,5 +8,6 @@ export const itemsApi = {
   update: (id, payload) => client.put(`/items/${id}`, payload).then((res) => res.data),
   remove: (id) => client.delete(`/items/${id}`).then((res) => res.data),
   checkout: (id, payload) => client.post(`/items/${id}/checkout`, payload).then((res) => res.data),
-  checkin: (id, payload) => client.post(`/items/${id}/checkin`, payload).then((res) => res.data)
+  checkin: (id, payload) => client.post(`/items/${id}/checkin`, payload).then((res) => res.data),
+  cartCheckout: (payload) => client.post("/items/cart-checkout", payload).then((r) => r.data),
 };
