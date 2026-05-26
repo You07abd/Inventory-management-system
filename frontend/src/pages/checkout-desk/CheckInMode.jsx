@@ -125,133 +125,150 @@ export default function CheckInMode() {
   return (
     <>
       {/* Session lookup */}
-      <div style={{ background: "#fff", border: "1px solid var(--color-border-light)", borderRadius: "8px", padding: "20px", marginBottom: "16px" }}>
-        <form onSubmit={handleLookup} style={{ display: "flex", gap: "10px", alignItems: "flex-end" }}>
-          <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-            <label className="form-label">Session ID</label>
-            <input
-              className="form-input"
-              value={sessionInput}
-              onChange={(e) => setSessionInput(e.target.value)}
-              placeholder="Enter session ID from checkout receipt"
-              style={{ fontFamily: "var(--font-mono)" }}
-            />
-          </div>
-          <button type="submit" className="btn btn-primary" disabled={looking || !sessionInput.trim()}>
-            {looking ? "Looking up…" : "Look Up"}
-          </button>
-          {sessionMeta && (
-            <button type="button" className="btn btn-secondary" onClick={resetSession}>Clear</button>
+      <div className="panel">
+        <div className="panel-head">
+          <h3>Look up Session</h3>
+        </div>
+        <div className="panel-body">
+          <form onSubmit={handleLookup} style={{ display: "flex", gap: "10px", alignItems: "flex-end" }}>
+            <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+              <label className="form-label">Session ID</label>
+              <input
+                className="form-input"
+                value={sessionInput}
+                onChange={(e) => setSessionInput(e.target.value)}
+                placeholder="Enter session ID from checkout receipt"
+                style={{ fontFamily: "var(--font-mono)" }}
+              />
+            </div>
+            <button type="submit" className="btn btn-primary" disabled={looking || !sessionInput.trim()}>
+              {looking ? "Looking up…" : "Look Up"}
+            </button>
+            {sessionMeta && (
+              <button type="button" className="btn btn-secondary" onClick={resetSession}>Clear</button>
+            )}
+          </form>
+          {lookupError && (
+            <div className="alert">{lookupError}</div>
           )}
-        </form>
-        {lookupError && (
-          <div style={{ color: "#991b1b", marginTop: "10px", fontSize: "13px", fontWeight: 600 }}>{lookupError}</div>
-        )}
+        </div>
       </div>
 
       {/* Receipt after submit */}
       {receipt && (
-        <div style={{ borderRadius: "8px", marginBottom: "16px", overflow: "hidden" }}>
+        <>
           {receipt.returned.length > 0 && (
-            <div style={{ background: "#d1fae5", color: "#065f46", padding: "16px 20px" }}>
-              <div style={{ fontWeight: 700, marginBottom: "8px" }}>
-                {receipt.returned.length === 1 ? "1 item returned" : `${receipt.returned.length} items returned`}
+            <div className="panel" style={{ borderColor: "#bbf7d0" }}>
+              <div className="panel-head">
+                <h3>Returned</h3>
               </div>
-              <ul style={{ margin: 0, padding: "0 0 0 18px" }}>
-                {receipt.returned.map((item) => (
-                  <li key={item.id}>
-                    <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, marginRight: "8px" }}>{item.asset_code}</span>
-                    {item.name}
-                  </li>
-                ))}
-              </ul>
+              <div className="panel-body">
+                <ul>
+                  {receipt.returned.map((item) => (
+                    <li key={item.id}>
+                      <span className="asset-code" style={{ color: "#059669" }}>{item.asset_code}</span>
+                      {" "}
+                      {item.name}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           )}
           {receipt.failed.length > 0 && (
-            <div style={{ background: "#fee2e2", color: "#991b1b", padding: "16px 20px" }}>
-              <div style={{ fontWeight: 700, marginBottom: "8px" }}>Failed — still checked out:</div>
-              <ul style={{ margin: 0, padding: "0 0 0 18px" }}>
-                {receipt.failed.map(({ item, error }) => (
-                  <li key={item.id}>
-                    <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, marginRight: "8px" }}>{item.asset_code}</span>
-                    {item.name} — {error}
-                  </li>
-                ))}
-              </ul>
-              <div style={{ marginTop: "10px", fontSize: "13px" }}>Failed items remain below — fix and retry.</div>
+            <div className="panel" style={{ borderColor: "#fecaca" }}>
+              <div className="panel-head">
+                <h3>Failed — still checked out</h3>
+              </div>
+              <div className="panel-body">
+                <ul>
+                  {receipt.failed.map(({ item, error }) => (
+                    <li key={item.id}>
+                      <span className="asset-code">{item.asset_code}</span>
+                      {" "}
+                      {item.name} — {error}
+                    </li>
+                  ))}
+                </ul>
+                <p>Failed items remain below — fix and retry.</p>
+              </div>
             </div>
           )}
-        </div>
+        </>
       )}
 
       {/* Item list */}
       {rows.length > 0 && (
-        <div style={{ background: "#fff", border: "1px solid var(--color-border-light)", borderRadius: "8px", padding: "20px", marginBottom: "16px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-            <div style={{ fontSize: "16px", fontWeight: 700 }}>
-              Session items — {rows.length} active
-            </div>
+        <div className="panel">
+          <div className="panel-head">
+            <h3>Session items — {rows.length} active</h3>
             <div style={{ display: "flex", gap: "12px" }}>
-              <button type="button" className="btn btn-secondary" style={{ padding: "4px 12px", fontSize: "13px" }} onClick={selectAll}>Select all</button>
-              <button type="button" className="btn btn-secondary" style={{ padding: "4px 12px", fontSize: "13px" }} onClick={deselectAll}>Deselect all</button>
+              <button type="button" className="row-btn" onClick={selectAll}>Select all</button>
+              <button type="button" className="row-btn" onClick={deselectAll}>Deselect all</button>
             </div>
           </div>
-          <table>
-            <thead>
-              <tr>
-                <th><div style={{ padding: "9px 8px" }}></div></th>
-                <th><div style={{ padding: "9px 14px" }}>Code</div></th>
-                <th><div style={{ padding: "9px 14px" }}>Name</div></th>
-                <th><div style={{ padding: "9px 14px" }}>Qty</div></th>
-                <th><div style={{ padding: "9px 14px" }}>Condition</div></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.item.id} style={{ opacity: row.checked ? 1 : 0.45 }}>
-                  <td style={{ paddingLeft: "14px" }}>
-                    <input type="checkbox" checked={row.checked} onChange={() => toggleRow(row.item.id)} style={{ accentColor: "#059669" }} />
-                  </td>
-                  <td><span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, color: "#059669" }}>{row.item.asset_code}</span></td>
-                  <td>{row.item.name}</td>
-                  <td>{row.txn.quantity}</td>
-                  <td>
-                    <select
-                      className="form-select"
-                      value={row.condition}
-                      onChange={(e) => setCondition(row.item.id, e.target.value)}
-                      style={{ padding: "5px 8px", fontSize: "13px" }}
-                    >
-                      {CONDITIONS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-                    </select>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="panel-body">
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th>Code</th>
+                    <th>Name</th>
+                    <th>Qty</th>
+                    <th>Condition</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr key={row.item.id} style={{ opacity: row.checked ? 1 : 0.45 }}>
+                      <td>
+                        <input type="checkbox" checked={row.checked} onChange={() => toggleRow(row.item.id)} style={{ accentColor: "#059669" }} />
+                      </td>
+                      <td><span className="asset-code" style={{ color: "#059669" }}>{row.item.asset_code}</span></td>
+                      <td>{row.item.name}</td>
+                      <td>{row.txn.quantity}</td>
+                      <td>
+                        <select
+                          className="form-select"
+                          value={row.condition}
+                          onChange={(e) => setCondition(row.item.id, e.target.value)}
+                        >
+                          {CONDITIONS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Submit */}
       {rows.length > 0 && (
-        <div style={{ background: "#fff", border: "1px solid var(--color-border-light)", borderRadius: "8px", padding: "20px" }}>
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label className="form-label">Notes (optional)</label>
-              <textarea className="form-textarea" value={notes} onChange={(e) => setNotes(e.target.value)} rows="2" />
-            </div>
-            {submitError && (
-              <div style={{ color: "#991b1b", marginBottom: "12px", fontSize: "13px", fontWeight: 600 }}>{submitError}</div>
-            )}
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={submitting || selectedCount === 0}
-              style={{ background: "#059669", borderColor: "#059669" }}
-            >
-              {submitting ? "Returning…" : `Return ${selectedCount === 1 ? "1 Item" : `${selectedCount} Items`}`}
-            </button>
-          </form>
+        <div className="panel">
+          <div className="panel-head">
+            <h3>Return selected items</h3>
+          </div>
+          <div className="panel-body">
+            <form onSubmit={handleSubmit}>
+              <div className="form-group">
+                <label className="form-label">Notes (optional)</label>
+                <textarea className="form-textarea" value={notes} onChange={(e) => setNotes(e.target.value)} rows="2" />
+              </div>
+              {submitError && <div className="alert">{submitError}</div>}
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={submitting || selectedCount === 0}
+                style={{ background: "#059669", borderColor: "#059669" }}
+              >
+                {submitting ? "Returning…" : `Return ${selectedCount === 1 ? "1 Item" : `${selectedCount} Items`}`}
+              </button>
+            </form>
+          </div>
         </div>
       )}
     </>

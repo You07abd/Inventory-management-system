@@ -117,6 +117,8 @@ function NavItem({ item, collapsed, isStudent }) {
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
+  const [mainOpen, setMainOpen] = useState(true);
+  const [recordsOpen, setRecordsOpen] = useState(true);
   const { role, logout } = useAuth();
   const navigate = useNavigate();
   const isStudent = role === "student";
@@ -139,13 +141,86 @@ export default function Sidebar() {
       </div>
 
       <nav className="sidebar-nav">
-        {!collapsed && <div className="nav-group-label">Main</div>}
-        {NAV_MAIN.map((item) => (
+        {!collapsed && (
+          <button
+            type="button"
+            className="nav-group-label"
+            onClick={() => setMainOpen((open) => !open)}
+            aria-expanded={mainOpen}
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              background: "none",
+              border: 0,
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            <span>Main</span>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{
+                transform: mainOpen ? "rotate(90deg)" : "rotate(0deg)",
+                transition: "transform 160ms ease",
+              }}
+              aria-hidden="true"
+            >
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </button>
+        )}
+        {(collapsed || mainOpen) && NAV_MAIN.map((item) => (
           <NavItem key={item.to} item={item} collapsed={collapsed} isStudent={isStudent} />
         ))}
 
-        {!collapsed && <div className="nav-group-label" style={{ marginTop: "8px" }}>Records</div>}
-        {NAV_RECORDS.map((item) => (
+        {!collapsed && (
+          <button
+            type="button"
+            className="nav-group-label"
+            onClick={() => setRecordsOpen((open) => !open)}
+            aria-expanded={recordsOpen}
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              background: "none",
+              border: 0,
+              marginTop: "8px",
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            <span>Records</span>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{
+                transform: recordsOpen ? "rotate(90deg)" : "rotate(0deg)",
+                transition: "transform 160ms ease",
+              }}
+              aria-hidden="true"
+            >
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </button>
+        )}
+        {(collapsed || recordsOpen) && NAV_RECORDS.map((item) => (
           <NavItem key={item.to} item={item} collapsed={collapsed} isStudent={isStudent} />
         ))}
       </nav>
