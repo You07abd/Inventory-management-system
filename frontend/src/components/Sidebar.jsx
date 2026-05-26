@@ -178,9 +178,23 @@ export default function Sidebar() {
             </svg>
           </button>
         )}
-        {(collapsed || mainOpen) && NAV_MAIN.map((item) => (
-          <NavItem key={item.to} item={item} collapsed={collapsed} isStudent={isStudent} />
-        ))}
+        {collapsed ? (
+          NAV_MAIN.map((item) => (
+            <NavItem key={item.to} item={item} collapsed={collapsed} isStudent={isStudent} />
+          ))
+        ) : (
+          <div style={{
+            display: 'grid',
+            gridTemplateRows: mainOpen ? '1fr' : '0fr',
+            transition: 'grid-template-rows 220ms ease',
+          }}>
+            <div style={{ overflow: 'hidden' }}>
+              {NAV_MAIN.map((item) => (
+                <NavItem key={item.to} item={item} collapsed={collapsed} isStudent={isStudent} />
+              ))}
+            </div>
+          </div>
+        )}
 
         {!collapsed && (
           <button
@@ -220,9 +234,23 @@ export default function Sidebar() {
             </svg>
           </button>
         )}
-        {(collapsed || recordsOpen) && NAV_RECORDS.map((item) => (
-          <NavItem key={item.to} item={item} collapsed={collapsed} isStudent={isStudent} />
-        ))}
+        {collapsed ? (
+          NAV_RECORDS.map((item) => (
+            <NavItem key={item.to} item={item} collapsed={collapsed} isStudent={isStudent} />
+          ))
+        ) : (
+          <div style={{
+            display: 'grid',
+            gridTemplateRows: recordsOpen ? '1fr' : '0fr',
+            transition: 'grid-template-rows 220ms ease',
+          }}>
+            <div style={{ overflow: 'hidden' }}>
+              {NAV_RECORDS.map((item) => (
+                <NavItem key={item.to} item={item} collapsed={collapsed} isStudent={isStudent} />
+              ))}
+            </div>
+          </div>
+        )}
       </nav>
 
       <div className="sidebar-footer" style={collapsed ? { justifyContent: 'center' } : {}}>

@@ -146,50 +146,56 @@ export default function CheckOutMode() {
               <polyline points="9 18 15 12 9 6"/>
             </svg>
           </div>
-          {itemsOpen && (
-            <div className="table-wrap" style={{ maxHeight: "420px", overflowY: "auto" }}>
-              <table>
-                <thead style={{ position: "sticky", top: 0, zIndex: 1 }}>
-                  <tr>
-                    <th><div style={{ padding: "9px 14px" }}>Code</div></th>
-                    <th><div style={{ padding: "9px 14px" }}>Name</div></th>
-                    <th><div style={{ padding: "9px 14px" }}>Location</div></th>
-                    <th><div style={{ padding: "9px 14px" }}>Status</div></th>
-                    <th><div style={{ padding: "9px 14px" }}></div></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((item) => {
-                    const reason = itemDisabledReason(item);
-                    return (
-                      <tr key={item.id} style={{ opacity: reason && reason !== "In cart" ? 0.5 : 1 }}>
-                        <td><span className="asset-code">{item.asset_code}</span></td>
-                        <td>{item.name}</td>
-                        <td style={{ color: "var(--color-muted)", fontSize: "13px" }}>{item.location_name || "—"}</td>
-                        <td>
-                          <span className={`badge badge--${item.status.replace(/_/g, "-")}`}>
-                            {item.status.replace(/_/g, " ")}
-                          </span>
-                        </td>
-                        <td>
-                          {reason ? (
-                            <button className="row-btn" disabled style={{ opacity: 0.5 }}>{reason}</button>
-                          ) : (
-                            <button className="row-btn row-btn--primary" onClick={() => addToCart(item)}>Add</button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {filtered.length === 0 && (
-                    <tr><td colSpan={5}>
-                      <div className="empty-state">No items found.</div>
-                    </td></tr>
-                  )}
-                </tbody>
-              </table>
+          <div style={{
+            display: 'grid',
+            gridTemplateRows: itemsOpen ? '1fr' : '0fr',
+            transition: 'grid-template-rows 220ms ease',
+          }}>
+            <div style={{ overflow: 'hidden' }}>
+              <div className="table-wrap" style={{ maxHeight: "420px", overflowY: "auto" }}>
+                <table>
+                  <thead style={{ position: "sticky", top: 0, zIndex: 1 }}>
+                    <tr>
+                      <th><div style={{ padding: "9px 14px" }}>Code</div></th>
+                      <th><div style={{ padding: "9px 14px" }}>Name</div></th>
+                      <th><div style={{ padding: "9px 14px" }}>Location</div></th>
+                      <th><div style={{ padding: "9px 14px" }}>Status</div></th>
+                      <th><div style={{ padding: "9px 14px" }}></div></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((item) => {
+                      const reason = itemDisabledReason(item);
+                      return (
+                        <tr key={item.id} style={{ opacity: reason && reason !== "In cart" ? 0.5 : 1 }}>
+                          <td><span className="asset-code">{item.asset_code}</span></td>
+                          <td>{item.name}</td>
+                          <td style={{ color: "var(--color-muted)", fontSize: "13px" }}>{item.location_name || "—"}</td>
+                          <td>
+                            <span className={`badge badge--${item.status.replace(/_/g, "-")}`}>
+                              {item.status.replace(/_/g, " ")}
+                            </span>
+                          </td>
+                          <td>
+                            {reason ? (
+                              <button className="row-btn" disabled style={{ opacity: 0.5 }}>{reason}</button>
+                            ) : (
+                              <button className="row-btn row-btn--primary" onClick={() => addToCart(item)}>Add</button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {filtered.length === 0 && (
+                      <tr><td colSpan={5}>
+                        <div className="empty-state">No items found.</div>
+                      </td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          )}
+          </div>
         </div>
       )}
 
@@ -204,42 +210,48 @@ export default function CheckOutMode() {
               <polyline points="9 18 15 12 9 6"/>
             </svg>
           </div>
-          {cartOpen && (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th><div style={{ padding: "9px 14px" }}>Code</div></th>
-                    <th><div style={{ padding: "9px 14px" }}>Name</div></th>
-                    <th><div style={{ padding: "9px 14px" }}>Location</div></th>
-                    <th><div style={{ padding: "9px 14px" }}>Qty</div></th>
-                    <th><div style={{ padding: "9px 14px" }}></div></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cart.length === 0 ? (
-                    <tr><td colSpan={5}>
-                      <div className="empty-state">No items added yet.</div>
-                    </td></tr>
-                  ) : cart.map(({ item, quantity }) => (
-                    <tr key={item.id}>
-                      <td><span className="asset-code">{item.asset_code}</span></td>
-                      <td>{item.name}</td>
-                      <td style={{ color: "var(--color-muted)", fontSize: "13px" }}>{item.location_name || "—"}</td>
-                      <td>
-                        <input type="number" className="form-input" min="1" max={item.available_quantity}
-                          value={quantity} onChange={(e) => updateQuantity(item.id, e.target.value)}
-                          style={{ width: "70px", padding: "6px 8px" }} />
-                      </td>
-                      <td>
-                        <button className="row-btn" onClick={() => removeFromCart(item.id)}>×</button>
-                      </td>
+          <div style={{
+            display: 'grid',
+            gridTemplateRows: cartOpen ? '1fr' : '0fr',
+            transition: 'grid-template-rows 220ms ease',
+          }}>
+            <div style={{ overflow: 'hidden' }}>
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th><div style={{ padding: "9px 14px" }}>Code</div></th>
+                      <th><div style={{ padding: "9px 14px" }}>Name</div></th>
+                      <th><div style={{ padding: "9px 14px" }}>Location</div></th>
+                      <th><div style={{ padding: "9px 14px" }}>Qty</div></th>
+                      <th><div style={{ padding: "9px 14px" }}></div></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {cart.length === 0 ? (
+                      <tr><td colSpan={5}>
+                        <div className="empty-state">No items added yet.</div>
+                      </td></tr>
+                    ) : cart.map(({ item, quantity }) => (
+                      <tr key={item.id}>
+                        <td><span className="asset-code">{item.asset_code}</span></td>
+                        <td>{item.name}</td>
+                        <td style={{ color: "var(--color-muted)", fontSize: "13px" }}>{item.location_name || "—"}</td>
+                        <td>
+                          <input type="number" className="form-input" min="1" max={item.available_quantity}
+                            value={quantity} onChange={(e) => updateQuantity(item.id, e.target.value)}
+                            style={{ width: "70px", padding: "6px 8px" }} />
+                        </td>
+                        <td>
+                          <button className="row-btn" onClick={() => removeFromCart(item.id)}>×</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          )}
+          </div>
         </div>
 
       {/* Checkout form */}

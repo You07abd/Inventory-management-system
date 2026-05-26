@@ -216,37 +216,43 @@ export default function CheckInMode() {
                     <polyline points="9 18 15 12 9 6"/>
                   </svg>
                 </div>
-                {isOpen && (
-                  <div className="table-wrap">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th><div style={{ padding: "9px 14px" }}>Code</div></th>
-                          <th><div style={{ padding: "9px 14px" }}>Name</div></th>
-                          <th><div style={{ padding: "9px 14px" }}>Held by</div></th>
-                          <th><div style={{ padding: "9px 14px" }}>Qty out</div></th>
-                          <th><div style={{ padding: "9px 14px" }}></div></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {items.map((item) => (
-                          <tr key={item.id}>
-                            <td><span className="asset-code" style={{ color: "#059669" }}>{item.asset_code}</span></td>
-                            <td>{item.name}</td>
-                            <td style={{ color: "var(--color-muted)", fontSize: "13px" }}>{holderMap[item.current_holder_id] ?? "—"}</td>
-                            <td>{item.quantity - item.available_quantity}</td>
-                            <td>
-                              {cartItemIds.has(item.id)
-                                ? <button className="row-btn" disabled style={{ opacity: 0.5 }}>Added</button>
-                                : <button className="row-btn row-btn--primary" onClick={() => addToReturnCart(item)}>Return</button>
-                              }
-                            </td>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateRows: isOpen ? '1fr' : '0fr',
+                  transition: 'grid-template-rows 220ms ease',
+                }}>
+                  <div style={{ overflow: 'hidden' }}>
+                    <div className="table-wrap">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th><div style={{ padding: "9px 14px" }}>Code</div></th>
+                            <th><div style={{ padding: "9px 14px" }}>Name</div></th>
+                            <th><div style={{ padding: "9px 14px" }}>Held by</div></th>
+                            <th><div style={{ padding: "9px 14px" }}>Qty out</div></th>
+                            <th><div style={{ padding: "9px 14px" }}></div></th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {items.map((item) => (
+                            <tr key={item.id}>
+                              <td><span className="asset-code" style={{ color: "#059669" }}>{item.asset_code}</span></td>
+                              <td>{item.name}</td>
+                              <td style={{ color: "var(--color-muted)", fontSize: "13px" }}>{holderMap[item.current_holder_id] ?? "—"}</td>
+                              <td>{item.quantity - item.available_quantity}</td>
+                              <td>
+                                {cartItemIds.has(item.id)
+                                  ? <button className="row-btn" disabled style={{ opacity: 0.5 }}>Added</button>
+                                  : <button className="row-btn row-btn--primary" onClick={() => addToReturnCart(item)}>Return</button>
+                                }
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
             );
           })
