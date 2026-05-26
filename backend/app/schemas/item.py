@@ -51,6 +51,7 @@ class Item(ItemBase):
     available_quantity: int
     created_at: datetime
     updated_at: datetime
+    location_name: str | None = None
 
 
 class CheckoutRequest(BaseModel):

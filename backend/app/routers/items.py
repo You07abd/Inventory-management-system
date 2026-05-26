@@ -6,7 +6,7 @@ from uuid import uuid4
 import qrcode
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models.category import Category
@@ -95,7 +95,14 @@ def list_items(
                 Item.serial_number.ilike(term),
             )
         )
-    return query.order_by(Item.asset_code).offset(skip).limit(limit).all()
+    return (
+        query
+        .options(joinedload(Item.location))
+        .order_by(Item.asset_code)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
 
 
 @router.post("/", response_model=ItemSchema, status_code=status.HTTP_201_CREATED)
@@ -189,7 +196,10 @@ def cart_checkout(payload: CartCheckoutRequest, db: Session = Depends(get_db)):
 
 @router.get("/{item_id}", response_model=ItemSchema)
 def get_item(item_id: int, db: Session = Depends(get_db)):
-    return _get_item_or_404(item_id, db)
+    item = db.query(Item).options(joinedload(Item.location)).filter(Item.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail='Item not found.')
+    return item
 
 
 @router.put("/{item_id}", response_model=ItemSchema)
