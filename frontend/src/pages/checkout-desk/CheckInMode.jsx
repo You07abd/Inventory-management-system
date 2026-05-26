@@ -4,6 +4,63 @@ import { itemsApi } from "../../api/items";
 import { categoriesApi } from "../../api/categories";
 import { usersApi } from "../../api/users";
 
+const DroneIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/>
+    <circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>
+    <circle cx="12" cy="12" r="3"/>
+    <line x1="8" y1="8" x2="10" y2="10"/><line x1="16" y1="8" x2="14" y2="10"/>
+    <line x1="8" y1="16" x2="10" y2="14"/><line x1="16" y1="16" x2="14" y2="14"/>
+  </svg>
+);
+const CameraIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+    <circle cx="12" cy="13" r="4"/>
+  </svg>
+);
+const BatteryIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="1" y="6" width="18" height="12" rx="2"/>
+    <line x1="23" y1="13" x2="23" y2="11"/>
+    <line x1="5" y1="12" x2="13" y2="12"/>
+    <line x1="9" y1="8" x2="9" y2="16"/>
+  </svg>
+);
+const GamepadIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="6" width="20" height="12" rx="5"/>
+    <line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/>
+    <circle cx="16" cy="10" r="1" fill="currentColor"/><circle cx="18" cy="12" r="1" fill="currentColor"/>
+  </svg>
+);
+const WrenchIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+  </svg>
+);
+const ShieldIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+  </svg>
+);
+const BoxIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+    <polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
+  </svg>
+);
+
+const CATEGORY_META = {
+  "Drones":              { color: "#2563eb", bg: "#eff6ff", Icon: DroneIcon },
+  "Cameras & Payloads":  { color: "#7c3aed", bg: "#f5f3ff", Icon: CameraIcon },
+  "Batteries & Power":   { color: "#d97706", bg: "#fffbeb", Icon: BatteryIcon },
+  "Controllers & Comms": { color: "#0891b2", bg: "#ecfeff", Icon: GamepadIcon },
+  "Tools & Maintenance": { color: "#475569", bg: "#f8fafc", Icon: WrenchIcon },
+  "Safety Equipment":    { color: "#dc2626", bg: "#fef2f2", Icon: ShieldIcon },
+};
+const DEFAULT_META = { color: "#94a3b8", bg: "#f8fafc", Icon: BoxIcon };
+
 const CONDITIONS = [
   { value: "excellent", label: "Excellent" },
   { value: "good", label: "Good" },
@@ -24,6 +81,9 @@ export default function CheckInMode() {
   const [submitError, setSubmitError] = useState(null);
   const [receipt, setReceipt] = useState(null);
   const [loadError, setLoadError] = useState(null);
+  const [viewMode, setViewMode] = useState("list");
+  const [ciGridPage, setCiGridPage] = useState("categories");
+  const [ciSelectedCat, setCiSelectedCat] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -86,6 +146,12 @@ export default function CheckInMode() {
     });
   }
 
+  function switchCiView(mode) {
+    setViewMode(mode);
+    setCiGridPage("categories");
+    setCiSelectedCat(null);
+  }
+
   function addToReturnCart(item) {
     const quantity = item.quantity - item.available_quantity;
     setReturnCart((prev) => [...prev, { item, quantity, condition: "good" }]);
@@ -141,56 +207,81 @@ export default function CheckInMode() {
 
       {/* Search */}
       <div className="panel">
-        <div className="panel-body">
-          <input className="form-input" value={query}
-                 onChange={(e) => setQuery(e.target.value)}
-                 placeholder="Search items to return…" />
+        <div className="panel-body" style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          <input
+            className="form-input"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search items to return…"
+            style={{ flex: 1 }}
+          />
+          <button
+            type="button"
+            className={`btn ${viewMode === "list" ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => switchCiView("list")}
+            style={{ whiteSpace: "nowrap" }}
+          >
+            List
+          </button>
+          <button
+            type="button"
+            className={`btn ${viewMode === "grid" ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => switchCiView("grid")}
+            style={{ whiteSpace: "nowrap" }}
+          >
+            Browse
+          </button>
         </div>
       </div>
 
       {loading ? (
         <div className="loading">Loading items…</div>
-      ) : query ? (
-        <div className="panel">
-          <div className="panel-head">
-            <h3>Results for "{query}"</h3>
-            <span style={{ color: "var(--color-muted)", fontSize: "13px" }}>{filtered.length} items</span>
-          </div>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th><div style={{ padding: "9px 14px" }}>Code</div></th>
-                  <th><div style={{ padding: "9px 14px" }}>Name</div></th>
-                  <th><div style={{ padding: "9px 14px" }}>Held by</div></th>
-                  <th><div style={{ padding: "9px 14px" }}>Qty out</div></th>
-                  <th><div style={{ padding: "9px 14px" }}></div></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((item) => (
-                  <tr key={item.id}>
-                    <td><span className="asset-code" style={{ color: "#059669" }}>{item.asset_code}</span></td>
-                    <td>{item.name}</td>
-                    <td style={{ color: "var(--color-muted)", fontSize: "13px" }}>{holderMap[item.current_holder_id] ?? "—"}</td>
-                    <td>{item.quantity - item.available_quantity}</td>
-                    <td>
-                      {cartItemIds.has(item.id)
-                        ? <button className="row-btn" disabled style={{ opacity: 0.5 }}>Added</button>
-                        : <button className="row-btn row-btn--primary" onClick={() => addToReturnCart(item)}>Return</button>
-                      }
-                    </td>
+      ) : viewMode === "list" || query.trim() ? (
+        query.trim() ? (
+          <div className="panel">
+            <div className="panel-head">
+              <h3>Results for "{query}"</h3>
+              <span style={{ color: "var(--color-muted)", fontSize: "13px" }}>{filtered.length} items</span>
+            </div>
+            {viewMode === "grid" && (
+              <div style={{ color: "var(--color-muted)", fontSize: "12.5px", padding: "12px 14px 0" }}>
+                Clear search to browse by category
+              </div>
+            )}
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th><div style={{ padding: "9px 14px" }}>Code</div></th>
+                    <th><div style={{ padding: "9px 14px" }}>Name</div></th>
+                    <th><div style={{ padding: "9px 14px" }}>Held by</div></th>
+                    <th><div style={{ padding: "9px 14px" }}>Qty out</div></th>
+                    <th><div style={{ padding: "9px 14px" }}></div></th>
                   </tr>
-                ))}
-                {filtered.length === 0 && (
-                  <tr><td colSpan={5}><div className="empty-state">No items found.</div></td></tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filtered.map((item) => (
+                    <tr key={item.id}>
+                      <td><span className="asset-code" style={{ color: "#059669" }}>{item.asset_code}</span></td>
+                      <td>{item.name}</td>
+                      <td style={{ color: "var(--color-muted)", fontSize: "13px" }}>{holderMap[item.current_holder_id] ?? "—"}</td>
+                      <td>{item.quantity - item.available_quantity}</td>
+                      <td>
+                        {cartItemIds.has(item.id)
+                          ? <button className="row-btn" disabled style={{ opacity: 0.5 }}>Added</button>
+                          : <button className="row-btn row-btn--primary" onClick={() => addToReturnCart(item)}>Return</button>
+                        }
+                      </td>
+                    </tr>
+                  ))}
+                  {filtered.length === 0 && (
+                    <tr><td colSpan={5}><div className="empty-state">No items found.</div></td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      ) : (
-        returnableItems.length === 0 ? (
+        ) : returnableItems.length === 0 ? (
           <div className="empty-state">No items are currently checked out.</div>
         ) : (
           [...grouped.entries()].map(([catId, items]) => {
@@ -257,6 +348,81 @@ export default function CheckInMode() {
             );
           })
         )
+      ) : ciGridPage === "categories" ? (
+        <div className="panel">
+          <div className="panel-head">
+            <h3>Browse by Category</h3>
+            <span style={{ color: "var(--color-muted)", fontSize: "13px" }}>{returnableItems.length} items out</span>
+          </div>
+          <div className="browse-grid">
+            {[...grouped.entries()].map(([catId, items]) => {
+              const catName = catId === 0
+                ? "Uncategorized"
+                : (categories.find((c) => c.id === catId)?.name ?? "Unknown Category");
+              const meta = CATEGORY_META[catName] ?? DEFAULT_META;
+              const Icon = meta.Icon;
+              return (
+                <button
+                  key={catId}
+                  type="button"
+                  className="browse-card"
+                  onClick={() => {
+                    setCiSelectedCat({ id: catId, name: catName });
+                    setCiGridPage("items");
+                  }}
+                >
+                  <span className="browse-card__icon" style={{ color: meta.color, background: meta.bg }}>
+                    <Icon />
+                  </span>
+                  <span className="browse-card__label">{catName}</span>
+                  <span className="browse-card__sub">{items.length} items out</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className="panel">
+          <div className="panel-head">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                setCiGridPage("categories");
+                setCiSelectedCat(null);
+              }}
+            >
+              Back
+            </button>
+            <h3>{ciSelectedCat?.name ?? "Items"}</h3>
+            <span style={{ color: "var(--color-muted)", fontSize: "13px" }}>
+              {returnableItems.filter((item) => (item.category_id ?? 0) === ciSelectedCat?.id).length} items
+            </span>
+          </div>
+          <div className="browse-grid">
+            {returnableItems
+              .filter((item) => (item.category_id ?? 0) === ciSelectedCat?.id)
+              .map((item) => {
+                const inCart = cartItemIds.has(item.id);
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`browse-card ${inCart ? "browse-card--in-cart" : ""}`}
+                    onClick={() => {
+                      if (!inCart) addToReturnCart(item);
+                    }}
+                  >
+                    <span className="browse-card__code">{item.asset_code}</span>
+                    <span className="browse-card__label">{item.name}</span>
+                    <span className="browse-card__sub">Held by {holderMap[item.current_holder_id] ?? "—"}</span>
+                    <span className="browse-card__sub">{item.quantity - item.available_quantity} out</span>
+                    {inCart && <span className="badge badge--available">Added</span>}
+                  </button>
+                );
+              })}
+          </div>
+        </div>
       )}
 
       {/* Return cart */}
