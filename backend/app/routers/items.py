@@ -4,6 +4,7 @@ from io import BytesIO
 
 import qrcode
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -73,6 +74,7 @@ def list_items(
     status_filter: str | None = None,
     category_id: int | None = None,
     location_id: int | None = None,
+    search: str | None = None,
     db: Session = Depends(get_db),
 ):
     query = db.query(Item)
@@ -82,6 +84,15 @@ def list_items(
         query = query.filter(Item.category_id == category_id)
     if location_id is not None:
         query = query.filter(Item.location_id == location_id)
+    if search:
+        term = f"%{search}%"
+        query = query.filter(
+            or_(
+                Item.name.ilike(term),
+                Item.asset_code.ilike(term),
+                Item.serial_number.ilike(term),
+            )
+        )
     return query.order_by(Item.asset_code).offset(skip).limit(limit).all()
 
 
@@ -166,6 +177,7 @@ def checkout_item(item_id: int, payload: CheckoutRequest, db: Session = Depends(
         type="checkout",
         quantity=payload.quantity,
         notes=payload.notes,
+        destination=payload.destination,
         due_date=payload.due_date,
     )
     db.add(transaction)

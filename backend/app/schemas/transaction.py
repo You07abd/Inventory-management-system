@@ -9,6 +9,7 @@ class TransactionBase(BaseModel):
     type: str
     quantity: int = Field(default=1, ge=1)
     notes: str | None = None
+    destination: str | None = None
     condition_on_return: str | None = None
     due_date: datetime | None = None
     returned_at: datetime | None = None

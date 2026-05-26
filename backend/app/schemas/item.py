@@ -57,6 +57,7 @@ class CheckoutRequest(BaseModel):
     user_id: int
     quantity: int = Field(default=1, ge=1)
     notes: str | None = None
+    destination: str | None = None
     due_date: datetime | None = None
 
 

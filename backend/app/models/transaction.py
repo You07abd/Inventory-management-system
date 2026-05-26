@@ -15,6 +15,7 @@ class Transaction(Base):
     type: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    destination: Mapped[str | None] = mapped_column(String(200), nullable=True)
     condition_on_return: Mapped[str | None] = mapped_column(String(80), nullable=True)
     due_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     returned_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
