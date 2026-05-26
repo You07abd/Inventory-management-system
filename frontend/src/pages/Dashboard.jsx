@@ -65,12 +65,12 @@ export default function Dashboard() {
           <div className="page-stack">
             <div className="metric-grid">
               <div className="metric-card">
-                <div className="metric-label">Total Assets</div>
-                <div className="metric-value metric-value--blue">{items.length}</div>
-                <div className="metric-footer">Across {categories.length} categories</div>
+                <div className="metric-label">Total Physical Units</div>
+                <div className="metric-value metric-value--blue">{totalUnits}</div>
+                <div className="metric-footer">Across {items.length} item types</div>
               </div>
               <div className="metric-card">
-                <div className="metric-label">Available</div>
+                <div className="metric-label">Available Units</div>
                 <div className="metric-value metric-value--green">{availableUnits}</div>
                 <div className="metric-footer">
                   <span className="metric-dot" style={{ background: "#22c55e" }} />
@@ -78,14 +78,14 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="metric-card">
-                <div className="metric-label">Checked Out</div>
+                <div className="metric-label">Checked Out Units</div>
                 <div className="metric-value">{checkedOut}</div>
                 <div className="metric-footer">{checkedOut === 0 ? "No active loans" : "Active loans"}</div>
               </div>
               <div className="metric-card">
-                <div className="metric-label">Locations</div>
-                <div className="metric-value">{users.length}</div>
-                <div className="metric-footer">Registered users</div>
+                <div className="metric-label">Item Types</div>
+                <div className="metric-value">{items.length}</div>
+                <div className="metric-footer">Across {categories.length} categories</div>
               </div>
             </div>
 
