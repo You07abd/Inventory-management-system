@@ -1,104 +1,105 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { getErrorMessage } from "../../api/client";
 import { itemsApi } from "../../api/items";
 import { usersApi } from "../../api/users";
 
 const emptyForm = { user_id: "", due_date: "", notes: "" };
 
-function badgeLabel(value) {
-  return String(value || "").replace(/_/g, " ");
-}
-
-function pluralize(count, word) {
-  return `${count} ${word}${count === 1 ? "" : "s"}`;
-}
-
-function disabledReason(item, cartItemIds) {
-  if (cartItemIds.has(item.id)) return "Already added";
-  if (item.available_quantity <= 0) return "Unavailable";
-  return null;
-}
-
 export default function CheckOutMode() {
-  const [cart, setCart] = useState([]);
+  const [allItems, setAllItems] = useState([]);
   const [users, setUsers] = useState([]);
-  const [form, setForm] = useState(emptyForm);
-  const [receipt, setReceipt] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState([]);
-  const [showDropdown, setShowDropdown] = useState(false);
+  const [cart, setCart] = useState([]);
+  const [form, setForm] = useState(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
-
-  const searchTimerRef = useRef(null);
-
-  useEffect(() => {
-    usersApi.list().then(setUsers).catch((err) => setError(getErrorMessage(err)));
-  }, []);
+  const [receipt, setReceipt] = useState(null);
+  const [itemsOpen, setItemsOpen] = useState(true);
+  const [cartOpen, setCartOpen] = useState(true);
 
   useEffect(() => {
-    const trimmed = query.trim();
-    if (!trimmed) {
-      setResults([]);
-      setShowDropdown(false);
-      return undefined;
-    }
     let active = true;
-    searchTimerRef.current = setTimeout(async () => {
+
+    async function loadData() {
+      setLoading(true);
+      setError(null);
       try {
-        const data = await itemsApi.list({ search: trimmed, limit: 8 });
+        const [items, loadedUsers] = await Promise.all([
+          itemsApi.list({ limit: 500 }),
+          usersApi.list(),
+        ]);
         if (!active) return;
-        setResults(data);
-        setShowDropdown(true);
+        setAllItems(items);
+        setUsers(loadedUsers);
       } catch (err) {
         if (!active) return;
         setError(getErrorMessage(err));
-        setResults([]);
-        setShowDropdown(false);
+      } finally {
+        if (active) setLoading(false);
       }
-    }, 300);
+    }
+
+    loadData();
+
     return () => {
       active = false;
-      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     };
-  }, [query]);
+  }, []);
+
+  const holderMap = useMemo(() => Object.fromEntries(users.map((u) => [u.id, u.name])), [users]);
+  const cartItemIds = useMemo(() => new Set(cart.map((c) => c.item.id)), [cart]);
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return allItems;
+    return allItems.filter((i) =>
+      i.name.toLowerCase().includes(q) ||
+      i.asset_code.toLowerCase().includes(q) ||
+      (i.serial_number || "").toLowerCase().includes(q)
+    );
+  }, [allItems, query]);
+
+  function itemDisabledReason(item) {
+    if (cartItemIds.has(item.id)) return "In cart";
+    if (item.condition === "damaged") return "Damaged";
+    if (item.available_quantity <= 0) return `Out — ${holderMap[item.current_holder_id] ?? "Unknown"}`;
+    return null;
+  }
 
   function addToCart(item) {
     setCart((prev) => [...prev, { item, quantity: 1 }]);
-    setQuery("");
-    setResults([]);
-    setShowDropdown(false);
   }
 
   function removeFromCart(itemId) {
     setCart((prev) => prev.filter(({ item }) => item.id !== itemId));
   }
 
-  function updateQuantity(itemId, rawValue) {
-    const quantity = Math.max(1, parseInt(rawValue, 10) || 1);
+  function updateQuantity(itemId, val) {
+    const quantity = Math.max(1, parseInt(val, 10) || 1);
     setCart((prev) =>
       prev.map((entry) =>
-        entry.item.id === itemId ? { ...entry, quantity } : entry
+        entry.item.id === itemId
+          ? { ...entry, quantity: Math.min(quantity, entry.item.available_quantity) }
+          : entry
       )
     );
   }
 
-  function updateForm(field, value) {
-    setForm((current) => ({ ...current, [field]: value }));
+  function updateForm(key, val) {
+    setForm((prev) => ({ ...prev, [key]: val }));
   }
 
-  async function handleSubmit(event) {
-    event.preventDefault();
+  async function handleSubmit(e) {
+    e.preventDefault();
     setSubmitting(true);
     setError(null);
     try {
-      const payload = {
-        items: cart.map(({ item, quantity }) => ({ item_id: item.id, quantity: Number(quantity) })),
-        user_id: Number(form.user_id),
+      const result = await itemsApi.cartCheckout({
+        items: cart.map(({ item, quantity }) => ({ item_id: item.id, quantity })),
+        user_id: form.user_id,
+        due_date: form.due_date || null,
         notes: form.notes || null,
-        due_date: form.due_date ? new Date(form.due_date).toISOString() : null,
-      };
-      const result = await itemsApi.cartCheckout(payload);
+      });
       setReceipt({ ...result, cartItems: cart });
       setCart([]);
       setForm(emptyForm);
@@ -110,168 +111,196 @@ export default function CheckOutMode() {
   }
 
   function startNewCart() {
+    setCart([]);
+    setForm(emptyForm);
     setReceipt(null);
     setError(null);
-  }
-
-  const cartItemIds = new Set(cart.map(({ item }) => item.id));
-
-  if (receipt) {
-    return (
-      <div className="panel">
-        <div className="panel-head" style={{ background: "var(--color-primary-light)", borderColor: "var(--color-primary-border)" }}>
-          <h3 style={{ color: "var(--color-primary)" }}>Checked out successfully</h3>
-        </div>
-        <div className="panel-body">
-          <p style={{ fontFamily: "var(--font-mono)", fontSize: "13px", marginBottom: "12px" }}>
-            Session ID: {receipt.session_id}
-          </p>
-          <ul>
-            {receipt.cartItems.map(({ item, quantity }) => (
-              <li key={item.id}>
-                <span className="asset-code">{item.asset_code}</span>
-                {" "}
-                {item.name}{quantity > 1 ? ` × ${quantity}` : ""}
-              </li>
-            ))}
-          </ul>
-          <button type="button" className="btn btn-primary" onClick={startNewCart}>
-            Start New Checkout
-          </button>
-        </div>
-      </div>
-    );
   }
 
   return (
     <>
       {error && <div className="alert">{error}</div>}
 
-      {/* Search */}
-      <div style={{ position: "relative", marginBottom: "20px" }}>
-        <div className="panel">
-          <div className="panel-body">
-            <input
-              className="form-input"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onFocus={() => { if (results.length > 0) setShowDropdown(true); }}
-              onKeyDown={(e) => { if (e.key === "Escape") { setQuery(""); setResults([]); setShowDropdown(false); } }}
-              placeholder="Search by asset code, name, or serial number"
-            />
-          </div>
+      {/* Search panel */}
+      <div className="panel">
+        <div className="panel-body">
+          <input className="form-input"
+                 value={query}
+                 onChange={(e) => setQuery(e.target.value)}
+                 placeholder="Search by asset code, name, or serial number…" />
         </div>
-        {showDropdown && (
-          <div style={{
-            position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, zIndex: 20,
-            background: "#fff", border: "1px solid var(--color-border-light)", borderRadius: "8px",
-            boxShadow: "0 16px 36px rgba(15,23,42,0.12)", overflow: "hidden"
-          }}>
-            {results.length === 0 ? (
-              <div style={{ padding: "14px 16px", color: "var(--color-muted)", fontSize: "13px" }}>No assets found.</div>
-            ) : results.map((item) => {
-              const label = disabledReason(item, cartItemIds);
-              return (
-                <div key={item.id} style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  gap: "12px", padding: "12px 16px", borderBottom: "1px solid var(--color-border-light)"
-                }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <span className="asset-code">{item.asset_code}</span>
-                    <span>{item.name}</span>
-                    {item.location_name && (
-                      <span style={{ color: "var(--color-muted)", fontSize: "12px" }}>— {item.location_name}</span>
-                    )}
-                    <span className={"badge badge--" + item.status.replace(/_/g, "-")}>
-                      {badgeLabel(item.status)}
-                    </span>
-                  </span>
-                  {label ? (
-                    <button type="button" className="row-btn" disabled>{label}</button>
-                  ) : (
-                    <button type="button" className="row-btn row-btn--primary" onClick={() => addToCart(item)}>Add</button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
 
-      {/* Cart */}
-      {cart.length > 0 && (
+      {/* Items table panel */}
+      {loading ? (
+        <div className="loading">Loading items…</div>
+      ) : (
         <div className="panel">
-          <div className="panel-head">
-            <h3>Cart — {pluralize(cart.length, "item")}</h3>
+          <div className="panel-head" onClick={() => setItemsOpen(o => !o)} style={{ cursor: 'pointer', userSelect: 'none' }}>
+            <h3>{query ? `Results for "${query}"` : "All Items"}</h3>
+            <span style={{ color: "var(--color-muted)", fontSize: "13px" }}>{filtered.length} items</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" strokeWidth="2"
+                 strokeLinecap="round" strokeLinejoin="round"
+                 style={{ transform: itemsOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 160ms ease', flexShrink: 0 }}>
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
           </div>
-          <div className="panel-body">
+          {itemsOpen && (
+            <div className="table-wrap" style={{ maxHeight: "420px", overflowY: "auto" }}>
+              <table>
+                <thead style={{ position: "sticky", top: 0, zIndex: 1 }}>
+                  <tr>
+                    <th><div style={{ padding: "9px 14px" }}>Code</div></th>
+                    <th><div style={{ padding: "9px 14px" }}>Name</div></th>
+                    <th><div style={{ padding: "9px 14px" }}>Location</div></th>
+                    <th><div style={{ padding: "9px 14px" }}>Status</div></th>
+                    <th><div style={{ padding: "9px 14px" }}></div></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((item) => {
+                    const reason = itemDisabledReason(item);
+                    return (
+                      <tr key={item.id} style={{ opacity: reason && reason !== "In cart" ? 0.5 : 1 }}>
+                        <td><span className="asset-code">{item.asset_code}</span></td>
+                        <td>{item.name}</td>
+                        <td style={{ color: "var(--color-muted)", fontSize: "13px" }}>{item.location_name || "—"}</td>
+                        <td>
+                          <span className={`badge badge--${item.status.replace(/_/g, "-")}`}>
+                            {item.status.replace(/_/g, " ")}
+                          </span>
+                        </td>
+                        <td>
+                          {reason ? (
+                            <button className="row-btn" disabled style={{ opacity: 0.5 }}>{reason}</button>
+                          ) : (
+                            <button className="row-btn row-btn--primary" onClick={() => addToCart(item)}>Add</button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {filtered.length === 0 && (
+                    <tr><td colSpan={5}>
+                      <div className="empty-state">No items found.</div>
+                    </td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Cart panel */}
+        <div className="panel">
+          <div className="panel-head" onClick={() => setCartOpen(o => !o)} style={{ cursor: 'pointer', userSelect: 'none' }}>
+            <h3>Cart — {cart.length} {cart.length === 1 ? "item" : "items"}</h3>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" strokeWidth="2"
+                 strokeLinecap="round" strokeLinejoin="round"
+                 style={{ transform: cartOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 160ms ease', flexShrink: 0 }}>
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </div>
+          {cartOpen && (
             <div className="table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>Code</th>
-                    <th>Name</th>
-                    <th>Location</th>
-                    <th>Qty</th>
-                    <th></th>
+                    <th><div style={{ padding: "9px 14px" }}>Code</div></th>
+                    <th><div style={{ padding: "9px 14px" }}>Name</div></th>
+                    <th><div style={{ padding: "9px 14px" }}>Location</div></th>
+                    <th><div style={{ padding: "9px 14px" }}>Qty</div></th>
+                    <th><div style={{ padding: "9px 14px" }}></div></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {cart.map(({ item, quantity }) => (
+                  {cart.length === 0 ? (
+                    <tr><td colSpan={5}>
+                      <div className="empty-state">No items added yet.</div>
+                    </td></tr>
+                  ) : cart.map(({ item, quantity }) => (
                     <tr key={item.id}>
                       <td><span className="asset-code">{item.asset_code}</span></td>
                       <td>{item.name}</td>
-                      <td>{item.location_name || "—"}</td>
+                      <td style={{ color: "var(--color-muted)", fontSize: "13px" }}>{item.location_name || "—"}</td>
                       <td>
                         <input type="number" className="form-input" min="1" max={item.available_quantity}
                           value={quantity} onChange={(e) => updateQuantity(item.id, e.target.value)}
-                          style={{ width: "70px" }} />
+                          style={{ width: "70px", padding: "6px 8px" }} />
                       </td>
                       <td>
-                        <button type="button" className="row-btn" onClick={() => removeFromCart(item.id)}>×</button>
+                        <button className="row-btn" onClick={() => removeFromCart(item.id)}>×</button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </div>
+          )}
         </div>
-      )}
 
-      {/* Form */}
+      {/* Checkout form */}
       {cart.length > 0 && (
         <div className="panel">
-          <div className="panel-head">
-            <h3>Checkout Details</h3>
-          </div>
+          <div className="panel-head"><h3>Checkout Details</h3></div>
           <div className="panel-body">
             <form onSubmit={handleSubmit}>
               <div className="form-card">
                 <div className="form-grid">
                   <div className="form-group">
                     <label className="form-label">User *</label>
-                    <select className="form-select" value={form.user_id} onChange={(e) => updateForm("user_id", e.target.value)} required>
+                    <select className="form-select" value={form.user_id}
+                            onChange={(e) => updateForm("user_id", e.target.value)} required>
                       <option value="" disabled>Select user</option>
                       {users.map((u) => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
                     </select>
                   </div>
                   <div className="form-group">
                     <label className="form-label">Expected Return Date</label>
-                    <input className="form-input" type="datetime-local" value={form.due_date} onChange={(e) => updateForm("due_date", e.target.value)} />
+                    <input className="form-input" type="datetime-local"
+                           value={form.due_date} onChange={(e) => updateForm("due_date", e.target.value)} />
                   </div>
                   <div className="form-group wide">
                     <label className="form-label">Notes</label>
-                    <textarea className="form-textarea" value={form.notes} onChange={(e) => updateForm("notes", e.target.value)} rows="3" />
+                    <textarea className="form-textarea" value={form.notes}
+                              onChange={(e) => updateForm("notes", e.target.value)} rows="3" />
                   </div>
                 </div>
-                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "16px" }}>
-                  <button type="submit" className="btn btn-primary" disabled={submitting || !form.user_id || cart.length === 0}>
-                    {submitting ? "Saving…" : `Check Out ${pluralize(cart.length, "Item")}`}
-                  </button>
-                </div>
               </div>
+              <button type="submit" className="btn btn-primary"
+                      disabled={submitting || !form.user_id || cart.length === 0}
+                      style={{ marginTop: "12px" }}>
+                {submitting ? "Saving…" : `Check Out ${cart.length} ${cart.length === 1 ? "Item" : "Items"}`}
+              </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Receipt */}
+      {receipt && (
+        <div className="panel">
+          <div className="panel-head" style={{ background: "var(--color-primary-light)", borderColor: "var(--color-primary-border)" }}>
+            <h3 style={{ color: "var(--color-primary)" }}>Checked out successfully</h3>
+          </div>
+          <div className="panel-body">
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "13px", marginBottom: "12px" }}>
+              Session ID: {receipt.session_id}
+            </p>
+            <ul style={{ margin: "0 0 16px", padding: "0 0 0 18px" }}>
+              {receipt.cartItems.map(({ item, quantity }) => (
+                <li key={item.id} style={{ marginBottom: "4px" }}>
+                  <span className="asset-code" style={{ marginRight: "8px" }}>{item.asset_code}</span>
+                  {item.name}{quantity > 1 ? ` × ${quantity}` : ""}
+                </li>
+              ))}
+            </ul>
+            <button type="button" className="btn btn-primary" onClick={startNewCart}>
+              Start New Checkout
+            </button>
           </div>
         </div>
       )}
