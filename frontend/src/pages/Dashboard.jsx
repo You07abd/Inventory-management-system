@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { categoriesApi } from "../api/categories";
 import { getErrorMessage } from "../api/client";
 import { itemsApi } from "../api/items";
 import { transactionsApi } from "../api/transactions";
 import { usersApi } from "../api/users";
+import { CATEGORY_META, DEFAULT_META } from "../utils/categoryMeta.jsx";
 
 export default function Dashboard() {
   const [items, setItems] = useState([]);
@@ -13,6 +14,7 @@ export default function Dashboard() {
   const [users, setUsers] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     (async () => {
@@ -40,7 +42,9 @@ export default function Dashboard() {
   const checkedOut = totalUnits - availableUnits;
 
   const catCounts = categories.map((c) => ({
+    id: c.id,
     name: c.name,
+    description: c.description,
     count: items.filter((i) => i.category_id === c.id).length,
   })).filter((c) => c.count > 0);
   const maxCount = Math.max(...catCounts.map((c) => c.count), 1);
@@ -57,64 +61,107 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="page-content">
-        {error && <div className="alert">{error}</div>}
+      {/* Full-height content area — no outer scroll */}
+      <div style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        padding: "16px 14px",
+        gap: "12px",
+      }}>
+        {error && <div className="alert" style={{ flexShrink: 0 }}>{error}</div>}
+
         {loading ? (
           <div className="loading">Loading dashboard...</div>
         ) : (
-          <div className="page-stack">
-            <div className="metric-grid">
-              <div className="metric-card">
+          <>
+            {/* Metric row — fixed height, never grows */}
+            <div className="metric-grid" style={{ flexShrink: 0 }}>
+              <div className="metric-card" style={{ padding: "14px 18px" }}>
                 <div className="metric-label">Total Physical Units</div>
-                <div className="metric-value metric-value--blue">{totalUnits}</div>
+                <div className="metric-value metric-value--blue" style={{ fontSize: "26px" }}>{totalUnits}</div>
                 <div className="metric-footer">Across {items.length} item types</div>
               </div>
-              <div className="metric-card">
+              <div className="metric-card" style={{ padding: "14px 18px" }}>
                 <div className="metric-label">Available Units</div>
-                <div className="metric-value metric-value--green">{availableUnits}</div>
+                <div className="metric-value metric-value--green" style={{ fontSize: "26px" }}>{availableUnits}</div>
                 <div className="metric-footer">
                   <span className="metric-dot" style={{ background: "#22c55e" }} />
                   {totalUnits > 0 ? Math.round((availableUnits / totalUnits) * 100) : 0}% availability
                 </div>
               </div>
-              <div className="metric-card">
+              <div className="metric-card" style={{ padding: "14px 18px" }}>
                 <div className="metric-label">Checked Out Units</div>
-                <div className="metric-value">{checkedOut}</div>
+                <div className="metric-value" style={{ fontSize: "26px" }}>{checkedOut}</div>
                 <div className="metric-footer">{checkedOut === 0 ? "No active loans" : "Active loans"}</div>
               </div>
-              <div className="metric-card">
+              <div className="metric-card" style={{ padding: "14px 18px" }}>
                 <div className="metric-label">Item Types</div>
-                <div className="metric-value">{items.length}</div>
+                <div className="metric-value" style={{ fontSize: "26px" }}>{items.length}</div>
                 <div className="metric-footer">Across {categories.length} categories</div>
               </div>
             </div>
 
-            <div className="panel-row">
-              <div className="panel">
-                <div className="panel-head">
+            {/* Panel row — fills the remaining height */}
+            <div className="panel-row" style={{ flex: 1, minHeight: 0 }}>
+
+              {/* Inventory by Category */}
+              <div className="panel" style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                <div className="panel-head" style={{ flexShrink: 0 }}>
                   <h3>Inventory by Category</h3>
-                  <span>{catCounts.length} categories</span>
+                  <span style={{ color: "var(--color-muted)", fontSize: "13px", marginRight: "4px" }}>
+                    {catCounts.length} categories
+                  </span>
                 </div>
-                <div className="panel-body">
-                  {catCounts.map((c) => (
-                    <div key={c.name} className="cat-row">
-                      <span className="cat-name">{c.name}</span>
-                      <div className="cat-bar-wrap">
-                        <div className="cat-bar" style={{ width: `${(c.count / maxCount) * 100}%` }} />
-                      </div>
-                      <span className="cat-count">{c.count}</span>
-                    </div>
-                  ))}
+                <div className="panel-body" style={{ flex: 1, overflowY: "auto" }}>
+                  <div className="browse-grid" style={{ padding: "4px 0" }}>
+                    {catCounts.map((c) => {
+                      const meta = CATEGORY_META[c.name] ?? DEFAULT_META;
+                      const Icon = meta.Icon;
+                      return (
+                        <div
+                          key={c.name}
+                          className="browse-card"
+                          onClick={() => navigate("/inventory")}
+                        >
+                          <div className="browse-card__icon" style={{ background: meta.bg, color: meta.color }}>
+                            <Icon />
+                          </div>
+                          <span className="browse-card__label">{c.name}</span>
+                          <span className="browse-card__sub">
+                            {c.count} {c.count === 1 ? "item" : "items"}
+                          </span>
+
+                          {/* Slide-up overlay */}
+                          <div
+                            className="cat-card-overlay"
+                            style={{ background: meta.bg, color: meta.color, justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}
+                          >
+                            <div className="cat-card-overlay__title">{c.name}</div>
+                            {c.description && (
+                              <div className="cat-card-overlay__desc">{c.description}</div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
-              <div className="panel">
-                <div className="panel-head">
+              {/* Recent Activity */}
+              <div className="panel" style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                <div className="panel-head" style={{ flexShrink: 0 }}>
                   <h3>Recent Activity</h3>
                   <span>Last {transactions.length} events</span>
                 </div>
-                <div className="panel-body">
-                  {transactions.length === 0 && <p className="empty-state" style={{ padding: "12px 0", border: "none", textAlign: "left" }}>No transactions yet.</p>}
+                <div className="panel-body" style={{ flex: 1, overflowY: "auto" }}>
+                  {transactions.length === 0 && (
+                    <p className="empty-state" style={{ padding: "12px 0", border: "none", textAlign: "left" }}>
+                      No transactions yet.
+                    </p>
+                  )}
                   {transactions.map((tx) => (
                     <div key={tx.id} className="activity-row">
                       <div className={`activity-dot activity-dot--${tx.type === "checkout" ? "out" : "in"}`} />
@@ -130,8 +177,9 @@ export default function Dashboard() {
                   ))}
                 </div>
               </div>
+
             </div>
-          </div>
+          </>
         )}
       </div>
     </>
