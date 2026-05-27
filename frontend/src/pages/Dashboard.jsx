@@ -92,7 +92,7 @@ export default function Dashboard() {
               </div>
               <div className="metric-card" style={{ padding: "14px 18px" }}>
                 <div className="metric-label">Checked Out Units</div>
-                <div className="metric-value" style={{ fontSize: "26px" }}>{checkedOut}</div>
+                <div className="metric-value metric-value--red" style={{ fontSize: "26px" }}>{checkedOut}</div>
                 <div className="metric-footer">{checkedOut === 0 ? "No active loans" : "Active loans"}</div>
               </div>
               <div className="metric-card" style={{ padding: "14px 18px" }}>

@@ -198,6 +198,7 @@ button { font-family: var(--font-body); cursor: pointer; }
 .metric-value { font-size: 32px; font-weight: 700; color: var(--color-text); line-height: 1; margin-bottom: 6px; }
 .metric-value--blue  { color: var(--color-primary); }
 .metric-value--green { color: #16a34a; }
+.metric-value--red   { color: #dc2626; }
 .metric-footer { font-size: 10.5px; color: var(--color-muted-2); display: flex; align-items: center; gap: 4px; }
 .metric-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; }
 

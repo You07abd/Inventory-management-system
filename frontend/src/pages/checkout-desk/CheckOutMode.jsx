@@ -23,6 +23,8 @@ export default function CheckOutMode() {
   const [viewMode, setViewMode] = useState("grid");
   const [gridPage, setGridPage] = useState("categories");
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [pendingCartItem, setPendingCartItem] = useState(null);
+  const [showCheckoutConfirm, setShowCheckoutConfirm] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -114,7 +116,7 @@ export default function CheckOutMode() {
   }
 
   async function handleSubmit(e) {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setSubmitting(true);
     setError(null);
     try {
@@ -227,7 +229,7 @@ export default function CheckOutMode() {
                             {reason ? (
                               <button className="row-btn" disabled style={{ opacity: 0.5 }}>{reason}</button>
                             ) : (
-                              <button className="row-btn row-btn--primary" onClick={() => addToCart(item)}>Add</button>
+                              <button className="row-btn row-btn--primary" onClick={() => setPendingCartItem(item)}>Add</button>
                             )}
                           </td>
                         </tr>
@@ -248,7 +250,7 @@ export default function CheckOutMode() {
         <div className="panel">
           <div className="panel-head">
             <h3>Browse by Category</h3>
-            <span style={{ color: "var(--color-muted)", fontSize: "13px" }}>{availableItems.length} available</span>
+            <span style={{ color: "var(--color-muted)", fontSize: "13px" }}>{categories.length} categories</span>
           </div>
           <div className="browse-grid">
             {categories.map((category) => {
@@ -333,7 +335,7 @@ export default function CheckOutMode() {
                   type="button"
                   className={`browse-card ${reason ? "browse-card--disabled" : ""} ${cartItemIds.has(item.id) ? "browse-card--in-cart" : ""}`}
                   onClick={() => {
-                    if (!reason) addToCart(item);
+                    if (!reason) setPendingCartItem(item);
                   }}
                 >
                   <span className={`badge badge--${item.status.replace(/_/g, "-")}`}>
@@ -415,7 +417,7 @@ export default function CheckOutMode() {
         <div className="panel">
           <div className="panel-head"><h3>Checkout Details</h3></div>
           <div className="panel-body">
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={(e) => { e.preventDefault(); setShowCheckoutConfirm(true); }}>
               <div className="form-card">
                 <div className="form-grid">
                   <div className="form-group">
@@ -428,7 +430,7 @@ export default function CheckOutMode() {
                   </div>
                   <div className="form-group">
                     <label className="form-label">Expected Return Date</label>
-                    <input className="form-input" type="datetime-local"
+                    <input className="form-input" type="date" min={new Date().toISOString().split("T")[0]}
                            value={form.due_date} onChange={(e) => updateForm("due_date", e.target.value)} />
                   </div>
                   <div className="form-group wide">
@@ -469,6 +471,69 @@ export default function CheckOutMode() {
             <button type="button" className="btn btn-primary" onClick={startNewCart}>
               Start New Checkout
             </button>
+          </div>
+        </div>
+      )}
+
+      {pendingCartItem && (
+        <div className='modal-backdrop' onClick={() => setPendingCartItem(null)}>
+          <div className='modal' onClick={(e) => e.stopPropagation()}>
+            <div className='modal-header'>
+              <h2>Add to Cart?</h2>
+              <button className='modal-close' onClick={() => setPendingCartItem(null)}>×</button>
+            </div>
+            <div>
+              <p style={{ fontWeight: 600 }}>{pendingCartItem.name}</p>
+              <p style={{ color: 'var(--color-muted)', fontSize: '13px' }}>
+                {pendingCartItem.asset_code}
+                {pendingCartItem.location_name ? ` · ${pendingCartItem.location_name}` : ''}
+              </p>
+              <p style={{ fontSize: '13px', marginTop: '6px' }}>
+                {pendingCartItem.available_quantity} unit{pendingCartItem.available_quantity !== 1 ? 's' : ''} available
+              </p>
+            </div>
+            <div className='modal-actions'>
+              <button className='btn btn-secondary' onClick={() => setPendingCartItem(null)}>Cancel</button>
+              <button className='btn btn-primary' onClick={() => { addToCart(pendingCartItem); setPendingCartItem(null); }}>Add to Cart</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCheckoutConfirm && (
+        <div className='modal-backdrop' onClick={() => setShowCheckoutConfirm(false)}>
+          <div className='modal' onClick={(e) => e.stopPropagation()}>
+            <div className='modal-header'>
+              <h2>Confirm Checkout</h2>
+              <button className='modal-close' onClick={() => setShowCheckoutConfirm(false)}>×</button>
+            </div>
+            <div>
+              <p style={{ fontSize: '13px', color: 'var(--color-muted)', marginBottom: '8px' }}>
+                Checking out {cart.length} {cart.length === 1 ? 'item' : 'items'} for{' '}
+                <strong>{users.find(u => u.id === Number(form.user_id))?.name ?? '—'}</strong>
+              </p>
+              <ul style={{ margin: '0 0 8px', padding: '0 0 0 18px', fontSize: '13px' }}>
+                {cart.map(({ item, quantity }) => (
+                  <li key={item.id}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', marginRight: '6px' }}>
+                      {item.asset_code}
+                    </span>
+                    {item.name}{quantity > 1 ? ` × ${quantity}` : ''}
+                  </li>
+                ))}
+              </ul>
+              {form.due_date && (
+                <p style={{ fontSize: '13px', color: 'var(--color-muted)' }}>
+                  Due: {new Date(form.due_date + "T00:00:00").toLocaleDateString()}
+                </p>
+              )}
+            </div>
+            <div className='modal-actions'>
+              <button className='btn btn-secondary' onClick={() => setShowCheckoutConfirm(false)}>Go Back</button>
+              <button className='btn btn-primary' disabled={submitting} onClick={() => { setShowCheckoutConfirm(false); handleSubmit(); }}>
+                {submitting ? 'Saving…' : 'Confirm Checkout'}
+              </button>
+            </div>
           </div>
         </div>
       )}
