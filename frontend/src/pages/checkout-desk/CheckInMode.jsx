@@ -97,6 +97,7 @@ export default function CheckInMode() {
   }
 
   function addToReturnCart(item) {
+    if (!item.current_holder_id) return; // no holder, cannot check in
     const quantity = item.quantity - item.available_quantity;
     setReturnCart((prev) => [...prev, { item, quantity, condition: "good" }]);
   }
@@ -127,6 +128,10 @@ export default function CheckInMode() {
     const returned = [];
     const failed = [];
     for (const row of returnCart) {
+      if (!row.item.current_holder_id) {
+        failed.push({ item: row.item, error: 'No holder on record' });
+        continue;
+      }
       try {
         await itemsApi.checkin(row.item.id, {
           user_id: row.item.current_holder_id,
@@ -213,6 +218,8 @@ export default function CheckInMode() {
                       <td>
                         {cartItemIds.has(item.id)
                           ? <button className="row-btn" disabled style={{ opacity: 0.5 }}>Added</button>
+                          : !item.current_holder_id
+                          ? <button className="row-btn" disabled style={{ opacity: 0.5 }}>No holder</button>
                           : <button className="row-btn row-btn--primary" onClick={() => addToReturnCart(item)}>Return</button>
                         }
                       </td>
@@ -278,6 +285,8 @@ export default function CheckInMode() {
                               <td>
                                 {cartItemIds.has(item.id)
                                   ? <button className="row-btn" disabled style={{ opacity: 0.5 }}>Added</button>
+                                  : !item.current_holder_id
+                                  ? <button className="row-btn" disabled style={{ opacity: 0.5 }}>No holder</button>
                                   : <button className="row-btn row-btn--primary" onClick={() => addToReturnCart(item)}>Return</button>
                                 }
                               </td>
@@ -361,9 +370,9 @@ export default function CheckInMode() {
                   <button
                     key={item.id}
                     type="button"
-                    className={`browse-card ${inCart ? "browse-card--in-cart" : ""}`}
+                    className={`browse-card ${inCart ? "browse-card--in-cart" : ""} ${!item.current_holder_id ? "browse-card--disabled" : ""}`}
                     onClick={() => {
-                      if (!inCart) addToReturnCart(item);
+                      if (!inCart && item.current_holder_id) addToReturnCart(item);
                     }}
                   >
                     <span className="browse-card__code">{item.asset_code}</span>
