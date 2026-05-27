@@ -25,7 +25,7 @@ export default function InventoryList() {
   const [loading, setLoading] = useState(true);
   const [checkoutItem, setCheckoutItem] = useState(null);
   const [checkinItem, setCheckinItem] = useState(null);
-  const [viewMode, setViewMode] = useState("grid"); // 'grid' | 'list'
+  const [viewMode, setViewMode] = useState("list"); // 'grid' | 'list'
 
   async function load() {
     setLoading(true);
@@ -198,68 +198,54 @@ export default function InventoryList() {
               ) : filteredItems.length === 0 ? (
                 <div className="empty-state">No items match your search.</div>
               ) : (
-                <div
-                  className="browse-grid"
-                  style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}
-                >
+                <div className="inv-grid">
                   {filteredItems.map((item) => {
                     const categoryName = categories.find((c) => c.id === item.category_id)?.name ?? "—";
                     const canCheckout = item.available_quantity > 0 && item.condition !== "damaged";
                     const canCheckin = item.available_quantity < item.quantity;
                     const fullyOut = item.available_quantity === 0;
+                    const partial = !fullyOut && item.available_quantity < item.quantity;
+                    const statusKey = fullyOut ? "out" : partial ? "partial" : "available";
                     return (
                       <div
                         key={item.id}
-                        className={`browse-card ${fullyOut ? "browse-card--disabled" : ""}`}
+                        className="inv-card"
+                        data-status={statusKey}
                         onClick={() => navigate(`/items/${item.id}`)}
-                        style={{ alignItems: "flex-start", textAlign: "left", padding: "16px", gap: "6px", cursor: "pointer" }}
                       >
-                        <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "flex-start", flexWrap: "wrap", gap: "4px" }}>
-                          <Link
-                            to={`/items/${item.id}`}
-                            className="browse-card__code"
-                            onClick={(e) => e.stopPropagation()}
-                            style={{ textDecoration: "none" }}
-                          >
-                            {item.asset_code}
-                          </Link>
-                          <span className={`badge ${fullyOut ? "badge--checked-out" : "badge--available"}`}>
-                            {item.status.replace(/_/g, " ")}
-                          </span>
+                        <div className="inv-card__header">
+                          <span className="inv-card__code">{item.asset_code}</span>
+                          <span className="inv-card__avail">{item.available_quantity}/{item.quantity}</span>
                         </div>
-                        <span className="browse-card__label" style={{ textAlign: "left" }}>{item.name}</span>
-                        <span className="browse-card__sub">{categoryName}</span>
-                        {item.location_name && (
-                          <span className="browse-card__sub">{item.location_name}</span>
-                        )}
-                        <span className="browse-card__sub">
-                          {item.available_quantity} / {item.quantity} available
-                        </span>
-                        <span className={`badge badge--${item.condition}`}>
-                          {item.condition}
-                        </span>
-                        {!isStudent && (
-                          <div style={{ display: "flex", gap: "6px", marginTop: "4px", width: "100%" }}>
-                            {canCheckout && (
-                              <button
-                                className="row-btn row-btn--primary"
-                                style={{ flex: 1 }}
-                                onClick={(e) => { e.stopPropagation(); setCheckoutItem(item); }}
-                              >
-                                Check Out
-                              </button>
-                            )}
-                            {canCheckin && (
-                              <button
-                                className="row-btn"
-                                style={{ flex: 1 }}
-                                onClick={(e) => { e.stopPropagation(); setCheckinItem(item); }}
-                              >
-                                Check In
-                              </button>
-                            )}
-                          </div>
-                        )}
+                        <div className="inv-card__name">{item.name}</div>
+                        <div className="inv-card__meta">
+                          <span>{categoryName}</span>
+                          {item.location_name && (
+                            <><span className="inv-card__sep">·</span><span>{item.location_name}</span></>
+                          )}
+                        </div>
+                        <div className="inv-card__footer">
+                          <span className="inv-card__condition">
+                            <span className="inv-card__dot" />
+                            {item.condition.replace(/_/g, " ")}
+                          </span>
+                          {!isStudent && (
+                            <div className="inv-card__actions">
+                              {canCheckout && (
+                                <button
+                                  className="row-btn row-btn--primary"
+                                  onClick={(e) => { e.stopPropagation(); setCheckoutItem(item); }}
+                                >Out</button>
+                              )}
+                              {canCheckin && (
+                                <button
+                                  className="row-btn"
+                                  onClick={(e) => { e.stopPropagation(); setCheckinItem(item); }}
+                                >In</button>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     );
                   })}

@@ -27,11 +27,6 @@ function SortIcon({ direction }) {
   );
 }
 
-function conditionBadgeClass(condition) {
-  const map = { excellent: "badge--excellent", good: "badge--good", fair: "badge--fair", poor: "badge--poor" };
-  return map[condition] || "badge--good";
-}
-
 export default function ItemTable({ items, categories = [], locations = [], onCheckout, onCheckin }) {
   const [sortKey, setSortKey] = useState(null);
   const [sortDir, setSortDir] = useState("none");
@@ -62,9 +57,10 @@ export default function ItemTable({ items, categories = [], locations = [], onCh
   }
 
   return (
-    <table>
+    <table className="inv-table">
       <thead>
         <tr>
+          <th style={{ width: "4px", padding: 0 }} />
           {COLUMNS.map((col) => (
             <th key={col.key}>
               <button className="sort-btn" onClick={() => handleSort(col.key)}>
@@ -79,9 +75,12 @@ export default function ItemTable({ items, categories = [], locations = [], onCh
       <tbody>
         {sorted.map((item) => {
           const checkedOut = item.quantity - item.available_quantity;
-          const isAvailable = checkedOut === 0;
+          const partial = checkedOut > 0 && item.available_quantity > 0;
+          const fullyOut = item.available_quantity === 0;
+          const statusKey = fullyOut ? "out" : partial ? "partial" : "available";
           return (
-            <tr key={item.id}>
+            <tr key={item.id} data-status={statusKey}>
+              <td className="inv-table__accent" />
               <td>
                 <Link className="asset-code" to={`/items/${item.id}`}>{item.asset_code}</Link>
               </td>
@@ -91,25 +90,32 @@ export default function ItemTable({ items, categories = [], locations = [], onCh
               </td>
               <td>{nameById(categories, item.category_id)}</td>
               <td>{nameById(locations, item.location_id)}</td>
-              <td>{item.available_quantity} / {item.quantity}</td>
+              <td style={{ fontVariantNumeric: "tabular-nums" }}>
+                {item.available_quantity} / {item.quantity}
+              </td>
               <td>
-                <span className={`badge ${conditionBadgeClass(item.condition)}`}>
-                  {item.condition}
+                <span className="inv-table__condition">
+                  {item.condition.replace(/_/g, " ")}
                 </span>
               </td>
               <td>
-                <span className={`badge ${isAvailable ? "badge--available" : "badge--checked-out"}`}>
-                  {isAvailable ? "Available" : "Checked Out"}
+                <span className={`inv-table__status inv-table__status--${statusKey}`}>
+                  <span className="inv-table__dot" />
+                  {fullyOut ? "Checked Out" : partial ? "Partial" : "Available"}
                 </span>
               </td>
               <td>
-                <div className="row-actions" style={{ flexDirection: 'column', gap: '4px' }}>
-                  <button className="row-btn row-btn--primary" style={{ padding: '3px 8px', fontSize: '11px' }} onClick={() => onCheckout(item)} disabled={item.available_quantity < 1}>
-                    Check Out
-                  </button>
-                  <button className="row-btn" style={{ padding: '3px 8px', fontSize: '11px' }} onClick={() => onCheckin(item)} disabled={checkedOut < 1}>
-                    Check In
-                  </button>
+                <div className="row-actions">
+                  <button
+                    className="row-btn row-btn--primary"
+                    onClick={() => onCheckout(item)}
+                    disabled={item.available_quantity < 1}
+                  >Out</button>
+                  <button
+                    className="row-btn"
+                    onClick={() => onCheckin(item)}
+                    disabled={checkedOut < 1}
+                  >In</button>
                 </div>
               </td>
             </tr>
