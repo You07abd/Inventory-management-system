@@ -39,3 +39,4 @@ class Item(Base):
         return self.location.name if self.location else None
 
     transactions = relationship("Transaction", back_populates="item", cascade="all, delete-orphan")
+    units = relationship("Unit", back_populates="item", cascade="all, delete-orphan")

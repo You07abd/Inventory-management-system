@@ -12,3 +12,4 @@ class Location(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     items = relationship("Item", back_populates="location")
+    units = relationship("Unit", back_populates="location")

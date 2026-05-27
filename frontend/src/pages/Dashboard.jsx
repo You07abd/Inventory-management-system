@@ -96,7 +96,7 @@ export default function Dashboard() {
                 <div className="metric-footer">{checkedOut === 0 ? "No active loans" : "Active loans"}</div>
               </div>
               <div className="metric-card" style={{ padding: "14px 18px" }}>
-                <div className="metric-label">Item Types</div>
+                <div className="metric-label">Models</div>
                 <div className="metric-value" style={{ fontSize: "26px" }}>{items.length}</div>
                 <div className="metric-footer">Across {categories.length} categories</div>
               </div>

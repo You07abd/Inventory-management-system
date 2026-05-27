@@ -17,6 +17,7 @@ class Transaction(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     destination: Mapped[str | None] = mapped_column(String(200), nullable=True)
     session_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    unit_id: Mapped[int | None] = mapped_column(ForeignKey("units.id"), nullable=True, index=True)
     condition_on_return: Mapped[str | None] = mapped_column(String(80), nullable=True)
     due_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     returned_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -24,3 +25,8 @@ class Transaction(Base):
 
     item = relationship("Item", back_populates="transactions")
     user = relationship("User", back_populates="transactions")
+    unit = relationship("Unit", back_populates="transactions")
+
+    @property
+    def unit_asset_code(self) -> str | None:
+        return self.unit.asset_code if self.unit else None

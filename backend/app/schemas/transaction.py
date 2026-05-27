@@ -14,6 +14,8 @@ class TransactionBase(BaseModel):
     due_date: datetime | None = None
     returned_at: datetime | None = None
     session_id: str | None = None
+    unit_id: int | None = None
+    unit_asset_code: str | None = None
 
 
 class TransactionCreate(TransactionBase):

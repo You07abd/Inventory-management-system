@@ -74,6 +74,7 @@ export default function Transactions() {
                 <tr>
                   <th><div style={{ padding: "9px 14px" }}>Type</div></th>
                   <th><div style={{ padding: "9px 14px" }}>Item</div></th>
+                  <th><div style={{ padding: '9px 14px' }}>Unit</div></th>
                   <th><div style={{ padding: "9px 14px" }}>User</div></th>
                   <th><div style={{ padding: "9px 14px" }}>Qty</div></th>
                   <th><div style={{ padding: "9px 14px" }}>Due</div></th>
@@ -92,6 +93,11 @@ export default function Transactions() {
                       </span>
                     </td>
                     <td>{itemLabel(tx.item_id)}</td>
+                    <td>
+                      {tx.unit_asset_code
+                        ? <span className='asset-code'>{tx.unit_asset_code}</span>
+                        : <span style={{ color: 'var(--color-muted)', fontSize: '13px' }}>—</span>}
+                    </td>
                     <td>User #{tx.user_id}</td>
                     <td>{tx.quantity}</td>
                     <td>{tx.due_date ? new Date(tx.due_date).toLocaleString() : "—"}</td>

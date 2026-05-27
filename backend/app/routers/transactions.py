@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models.transaction import Transaction
@@ -17,7 +17,7 @@ def list_transactions(
     limit: int = 100,
     db: Session = Depends(get_db),
 ):
-    query = db.query(Transaction)
+    query = db.query(Transaction).options(joinedload(Transaction.unit))
     if item_id is not None:
         query = query.filter(Transaction.item_id == item_id)
     if session_id is not None:
@@ -27,7 +27,12 @@ def list_transactions(
 
 @router.get("/{transaction_id}", response_model=TransactionSchema)
 def get_transaction(transaction_id: int, db: Session = Depends(get_db)):
-    transaction = db.get(Transaction, transaction_id)
+    transaction = (
+        db.query(Transaction)
+        .options(joinedload(Transaction.unit))
+        .filter(Transaction.id == transaction_id)
+        .first()
+    )
     if not transaction:
         raise HTTPException(status_code=404, detail="Transaction not found.")
     return transaction

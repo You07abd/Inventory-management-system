@@ -102,7 +102,7 @@ export default function InventoryList() {
     <>
       <div className="topbar">
         <div className="topbar-left">
-          <span className="topbar-breadcrumb">Assets</span>
+          <span className="topbar-breadcrumb">Inventory</span>
           <span className="topbar-title">Inventory</span>
         </div>
         <div className="topbar-actions">
