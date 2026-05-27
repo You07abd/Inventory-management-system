@@ -48,9 +48,7 @@ export default function AddItem() {
         description: form.description || null,
         serial_number: form.serial_number || null,
         quantity: Number(form.quantity),
-        available_quantity: null,
         condition: form.condition,
-        status: "available",
         category_id: form.category_id ? Number(form.category_id) : null,
         location_id: form.location_id ? Number(form.location_id) : null,
       };
