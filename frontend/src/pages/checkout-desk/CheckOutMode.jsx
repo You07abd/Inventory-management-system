@@ -157,19 +157,19 @@ export default function CheckOutMode() {
           />
           <button
             type="button"
-            className={`btn ${viewMode === "list" ? "btn-primary" : "btn-secondary"}`}
-            onClick={() => switchView("list")}
-            style={{ whiteSpace: "nowrap" }}
-          >
-            List
-          </button>
-          <button
-            type="button"
             className={`btn ${viewMode === "grid" ? "btn-primary" : "btn-secondary"}`}
             onClick={() => switchView("grid")}
             style={{ whiteSpace: "nowrap" }}
           >
             Grid
+          </button>
+          <button
+            type="button"
+            className={`btn ${viewMode === "list" ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => switchView("list")}
+            style={{ whiteSpace: "nowrap" }}
+          >
+            List
           </button>
         </div>
       </div>
@@ -270,6 +270,15 @@ export default function CheckOutMode() {
                   </span>
                   <span className="browse-card__label">{category.name}</span>
                   <span className="browse-card__sub">{count} available</span>
+                  <div
+                    className="cat-card-overlay"
+                    style={{ background: meta.bg, color: meta.color, justifyContent: "center", alignItems: "center", textAlign: "center" }}
+                  >
+                    <div className="cat-card-overlay__title">{category.name}</div>
+                    {category.description && (
+                      <div className="cat-card-overlay__desc">{category.description}</div>
+                    )}
+                  </div>
                 </button>
               );
             })}
@@ -289,6 +298,12 @@ export default function CheckOutMode() {
                 <span className="browse-card__sub">
                   {availableItems.filter((item) => item.category_id === null).length} available
                 </span>
+                <div
+                  className="cat-card-overlay"
+                  style={{ background: DEFAULT_META.bg, color: DEFAULT_META.color, justifyContent: "center", alignItems: "center", textAlign: "center" }}
+                >
+                  <div className="cat-card-overlay__title">Uncategorized</div>
+                </div>
               </button>
             )}
           </div>

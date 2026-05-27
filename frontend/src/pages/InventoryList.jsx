@@ -78,17 +78,17 @@ export default function InventoryList() {
         <div className="topbar-actions">
           <button
             type="button"
-            className={`btn ${viewMode === "list" ? "btn-primary" : "btn-secondary"}`}
-            onClick={() => setViewMode("list")}
-          >
-            List
-          </button>
-          <button
-            type="button"
             className={`btn ${viewMode === "grid" ? "btn-primary" : "btn-secondary"}`}
             onClick={() => setViewMode("grid")}
           >
             Grid
+          </button>
+          <button
+            type="button"
+            className={`btn ${viewMode === "list" ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => setViewMode("list")}
+          >
+            List
           </button>
           {!isStudent && (
             <Link className="btn btn-primary" to="/inventory/new">Add Item</Link>

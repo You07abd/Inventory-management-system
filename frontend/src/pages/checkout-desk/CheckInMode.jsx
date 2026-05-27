@@ -161,19 +161,19 @@ export default function CheckInMode() {
           />
           <button
             type="button"
-            className={`btn ${viewMode === "list" ? "btn-primary" : "btn-secondary"}`}
-            onClick={() => switchCiView("list")}
-            style={{ whiteSpace: "nowrap" }}
-          >
-            List
-          </button>
-          <button
-            type="button"
             className={`btn ${viewMode === "grid" ? "btn-primary" : "btn-secondary"}`}
             onClick={() => switchCiView("grid")}
             style={{ whiteSpace: "nowrap" }}
           >
             Grid
+          </button>
+          <button
+            type="button"
+            className={`btn ${viewMode === "list" ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => switchCiView("list")}
+            style={{ whiteSpace: "nowrap" }}
+          >
+            List
           </button>
         </div>
       </div>
@@ -320,6 +320,15 @@ export default function CheckInMode() {
                   </span>
                   <span className="browse-card__label">{catName}</span>
                   <span className="browse-card__sub">{items.length} items out</span>
+                  <div
+                    className="cat-card-overlay"
+                    style={{ background: meta.bg, color: meta.color, justifyContent: "center", alignItems: "center", textAlign: "center" }}
+                  >
+                    <div className="cat-card-overlay__title">{catName}</div>
+                    {categories.find(c => c.id === catId)?.description && (
+                      <div className="cat-card-overlay__desc">{categories.find(c => c.id === catId)?.description}</div>
+                    )}
+                  </div>
                 </button>
               );
             })}
