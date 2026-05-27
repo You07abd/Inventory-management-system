@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { categoriesApi } from "../api/categories";
 import { getErrorMessage } from "../api/client";
 import { itemsApi } from "../api/items";
@@ -11,6 +11,7 @@ import ItemTable from "../components/ItemTable.jsx";
 import { useAuth } from "../context/AuthContext";
 
 export default function InventoryList() {
+  const navigate = useNavigate();
   const { role } = useAuth();
   const isStudent = role === "student";
 
@@ -210,9 +211,10 @@ export default function InventoryList() {
                       <div
                         key={item.id}
                         className={`browse-card ${fullyOut ? "browse-card--disabled" : ""}`}
-                        style={{ alignItems: "flex-start", textAlign: "left", padding: "16px", gap: "6px" }}
+                        onClick={() => navigate(`/items/${item.id}`)}
+                        style={{ alignItems: "flex-start", textAlign: "left", padding: "16px", gap: "6px", cursor: "pointer" }}
                       >
-                        <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "flex-start", flexWrap: "wrap", gap: "4px" }}>
                           <Link
                             to={`/items/${item.id}`}
                             className="browse-card__code"
@@ -242,7 +244,7 @@ export default function InventoryList() {
                               <button
                                 className="row-btn row-btn--primary"
                                 style={{ flex: 1 }}
-                                onClick={() => setCheckoutItem(item)}
+                                onClick={(e) => { e.stopPropagation(); setCheckoutItem(item); }}
                               >
                                 Check Out
                               </button>
@@ -251,7 +253,7 @@ export default function InventoryList() {
                               <button
                                 className="row-btn"
                                 style={{ flex: 1 }}
-                                onClick={() => setCheckinItem(item)}
+                                onClick={(e) => { e.stopPropagation(); setCheckinItem(item); }}
                               >
                                 Check In
                               </button>
