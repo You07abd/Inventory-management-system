@@ -120,7 +120,7 @@ export default function CheckOutMode() {
     try {
       const result = await itemsApi.cartCheckout({
         items: cart.map(({ item, quantity }) => ({ item_id: item.id, quantity })),
-        user_id: form.user_id,
+        user_id: Number(form.user_id),
         due_date: form.due_date || null,
         notes: form.notes || null,
       });
