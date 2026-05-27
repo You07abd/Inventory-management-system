@@ -27,6 +27,7 @@ export default function CheckInMode() {
   const [loadError, setLoadError] = useState(null);
   const [viewMode, setViewMode] = useState("grid");
   const [ciGridPage, setCiGridPage] = useState("categories");
+  const [ciGridDir, setCiGridDir] = useState("forward");
   const [ciSelectedCat, setCiSelectedCat] = useState(null);
 
   useEffect(() => {
@@ -93,6 +94,7 @@ export default function CheckInMode() {
   function switchCiView(mode) {
     setViewMode(mode);
     setCiGridPage("categories");
+    setCiGridDir("forward");
     setCiSelectedCat(null);
   }
 
@@ -312,7 +314,7 @@ export default function CheckInMode() {
           })
         )
       ) : ciGridPage === "categories" ? (
-        <div className="panel">
+        <div className={`panel grid-panel--${ciGridDir}`}>
           <div className="panel-head">
             <h3>Browse by Category</h3>
             <span style={{ color: "var(--color-muted)", fontSize: "13px" }}>{returnableItems.length} items out</span>
@@ -331,6 +333,7 @@ export default function CheckInMode() {
                   className="browse-card"
                   onClick={() => {
                     setCiSelectedCat({ id: catId, name: catName });
+                    setCiGridDir("forward");
                     setCiGridPage("items");
                   }}
                 >
@@ -354,12 +357,13 @@ export default function CheckInMode() {
           </div>
         </div>
       ) : (
-        <div className="panel">
+        <div className={`panel grid-panel--${ciGridDir}`}>
           <div className="panel-head">
             <button
               type="button"
               className="btn btn-secondary"
               onClick={() => {
+                setCiGridDir("backward");
                 setCiGridPage("categories");
                 setCiSelectedCat(null);
               }}
@@ -377,30 +381,37 @@ export default function CheckInMode() {
               .map((item) => {
                 const inCart = cartItemIds.has(item.id);
                 const noHolder = !item.current_holder_id;
+                const chipLabel = inCart ? 'In Cart' : noHolder ? 'No Holder' : 'Checked Out';
+                const chipKey = inCart ? 'in-cart' : 'out';
                 return (
-                  <button
+                  <div
                     key={item.id}
-                    type="button"
-                    className={`inv-card ${inCart ? "browse-card--in-cart" : ""} ${!item.current_holder_id ? "browse-card--disabled" : ""}`}
-                    onClick={() => {
-                      if (!inCart && item.current_holder_id) addToReturnCart(item);
-                    }}
+                    className='inv-card'
+                    onClick={() => { if (!inCart && !noHolder) addToReturnCart(item); }}
+                    style={{ cursor: inCart || noHolder ? 'default' : 'pointer', opacity: noHolder ? 0.5 : 1 }}
                   >
-                    <div className="inv-card__header">
-                      <span className="inv-card__code">{item.asset_code}</span>
-                      <span className="inv-card__avail">{item.quantity - item.available_quantity} out</span>
+                    <div className='inv-card__header'>
+                      <span className='inv-card__code'>{item.asset_code}</span>
+                      <span className={`inv-card__chip inv-card__chip--${chipKey}`}>{chipLabel}</span>
                     </div>
-                    <div className="inv-card__name">{item.name}</div>
-                    <div className="inv-card__meta">
+                    <div className='inv-card__name'>{item.name}</div>
+                    <div className='inv-card__meta'>
                       <span>Held by {holderMap[item.current_holder_id] ?? "—"}</span>
-                      <span>{inCart ? "Added" : "Ready to return"}</span>
                     </div>
-                    <div className="inv-card__footer">
-                      <span className="inv-card__condition">
-                        {inCart ? "in cart" : noHolder ? "no holder" : "checked out"}
+                    <div className='inv-card__footer'>
+                      <span className='inv-card__stats'>
+                        {item.quantity - item.available_quantity} out
+                        <span className='inv-card__sep'> · </span>
+                        {item.condition.replace(/_/g, ' ')}
                       </span>
+                      {!inCart && !noHolder && (
+                        <button
+                          className='row-btn row-btn--primary'
+                          onClick={(e) => { e.stopPropagation(); addToReturnCart(item); }}
+                        >Return</button>
+                      )}
                     </div>
-                  </button>
+                  </div>
                 );
               })}
           </div>

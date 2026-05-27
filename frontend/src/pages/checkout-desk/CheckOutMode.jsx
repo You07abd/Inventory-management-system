@@ -22,6 +22,7 @@ export default function CheckOutMode() {
   const [cartOpen, setCartOpen] = useState(true);
   const [viewMode, setViewMode] = useState("grid");
   const [gridPage, setGridPage] = useState("categories");
+  const [gridDir, setGridDir] = useState("forward");
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [pendingCartItem, setPendingCartItem] = useState(null);
   const [pendingQty, setPendingQty] = useState(1);
@@ -90,6 +91,7 @@ export default function CheckOutMode() {
   function switchView(mode) {
     setViewMode(mode);
     setGridPage("categories");
+    setGridDir("forward");
     setSelectedCategory(null);
   }
 
@@ -255,7 +257,7 @@ export default function CheckOutMode() {
           </div>
         </div>
       ) : gridPage === "categories" ? (
-        <div className="panel">
+        <div className={`panel grid-panel--${gridDir}`}>
           <div className="panel-head">
             <h3>Browse by Category</h3>
             <span style={{ color: "var(--color-muted)", fontSize: "13px" }}>{categories.length} categories</span>
@@ -272,6 +274,7 @@ export default function CheckOutMode() {
                   className="browse-card"
                   onClick={() => {
                     setSelectedCategory(category);
+                    setGridDir("forward");
                     setGridPage("items");
                   }}
                 >
@@ -298,6 +301,7 @@ export default function CheckOutMode() {
                 className="browse-card"
                 onClick={() => {
                   setSelectedCategory({ id: null, name: "Uncategorized" });
+                  setGridDir("forward");
                   setGridPage("items");
                 }}
               >
@@ -319,12 +323,13 @@ export default function CheckOutMode() {
           </div>
         </div>
       ) : (
-        <div className="panel">
+        <div className={`panel grid-panel--${gridDir}`}>
           <div className="panel-head">
             <button
               type="button"
               className="btn btn-secondary"
               onClick={() => {
+                setGridDir("backward");
                 setGridPage("categories");
                 setSelectedCategory(null);
               }}
@@ -337,36 +342,39 @@ export default function CheckOutMode() {
           <div className="inv-grid">
             {selectedCategoryItems.map((item) => {
               const reason = itemDisabledReason(item);
-              const checkedOut = item.quantity - item.available_quantity;
-              const partial = checkedOut > 0 && item.available_quantity > 0;
               const fullyOut = item.available_quantity === 0;
-              const statusKey = fullyOut ? "out" : partial ? "partial" : "available";
+              const partial = !fullyOut && item.available_quantity < item.quantity;
+              const statusKey = cartItemIds.has(item.id) ? 'in-cart' : reason ? 'disabled' : fullyOut ? 'out' : partial ? 'partial' : 'available';
+              const chipLabel = cartItemIds.has(item.id) ? 'In Cart' : reason === 'Damaged' ? 'Damaged' : fullyOut ? 'Out' : partial ? 'Partial' : 'Available';
               return (
-                <button
+                <div
                   key={item.id}
-                  type="button"
-                  className={`inv-card ${reason ? "browse-card--disabled" : ""} ${cartItemIds.has(item.id) ? "browse-card--in-cart" : ""}`}
-                  onClick={() => {
-                    if (!reason) {
-                      setPendingCartItem(item);
-                      setPendingQty(1);
-                    }
-                  }}
+                  className='inv-card'
+                  onClick={() => { if (!reason) setPendingCartItem(item); setPendingQty(1); }}
+                  style={{ cursor: reason ? 'default' : 'pointer', opacity: reason && reason !== 'In cart' ? 0.5 : 1 }}
                 >
-                  <div className="inv-card__header">
-                    <span className="inv-card__code">{item.asset_code}</span>
-                    <span className="inv-card__avail">{item.available_quantity}/{item.quantity}</span>
+                  <div className='inv-card__header'>
+                    <span className='inv-card__code'>{item.asset_code}</span>
+                    <span className={`inv-card__chip inv-card__chip--${statusKey}`}>{chipLabel}</span>
                   </div>
-                  <div className="inv-card__name">{item.name}</div>
-                  <div className="inv-card__meta">
-                    <span>{item.location_name || "—"}</span>
+                  <div className='inv-card__name'>{item.name}</div>
+                  <div className='inv-card__meta'>
+                    <span>{item.location_name || '—'}</span>
                   </div>
-                  <div className="inv-card__footer">
-                    <span className="inv-card__condition">
-                      {item.condition.replace(/_/g, " ")} · {reason ?? "available"}
+                  <div className='inv-card__footer'>
+                    <span className='inv-card__stats'>
+                      {item.available_quantity}/{item.quantity}
+                      <span className='inv-card__sep'> · </span>
+                      {item.condition.replace(/_/g, ' ')}
                     </span>
+                    {!reason && (
+                      <button
+                        className='row-btn row-btn--primary'
+                        onClick={(e) => { e.stopPropagation(); setPendingCartItem(item); setPendingQty(1); }}
+                      >Add</button>
+                    )}
                   </div>
-                </button>
+                </div>
               );
             })}
             {selectedCategoryItems.length === 0 && (

@@ -206,39 +206,36 @@ export default function InventoryList() {
                     const fullyOut = item.available_quantity === 0;
                     const partial = !fullyOut && item.available_quantity < item.quantity;
                     const statusKey = fullyOut ? "out" : partial ? "partial" : "available";
+                    const chipLabel = fullyOut ? 'Out' : partial ? 'Partial' : 'Available';
                     return (
                       <div
                         key={item.id}
-                        className="inv-card"
+                        className='inv-card'
                         onClick={() => navigate(`/items/${item.id}`)}
                       >
-                        <div className="inv-card__header">
-                          <span className="inv-card__code">{item.asset_code}</span>
-                          <span className="inv-card__avail">{item.available_quantity}/{item.quantity}</span>
+                        <div className='inv-card__header'>
+                          <span className='inv-card__code'>{item.asset_code}</span>
+                          <span className={`inv-card__chip inv-card__chip--${statusKey}`}>{chipLabel}</span>
                         </div>
-                        <div className="inv-card__name">{item.name}</div>
-                        <div className="inv-card__meta">
+                        <div className='inv-card__name'>{item.name}</div>
+                        <div className='inv-card__meta'>
                           <span>{categoryName}</span>
-                          <span className="inv-card__sep"> · </span>
-                          <span>{item.location_name || "—"}</span>
+                          <span className='inv-card__sep'> · </span>
+                          <span>{item.location_name || '—'}</span>
                         </div>
-                        <div className="inv-card__footer">
-                          <span className="inv-card__condition">
-                            {item.condition.replace(/_/g, " ")} · {fullyOut ? "out" : partial ? "partial" : "available"}
+                        <div className='inv-card__footer'>
+                          <span className='inv-card__stats'>
+                            {item.available_quantity}/{item.quantity}
+                            <span className='inv-card__sep'> · </span>
+                            {item.condition.replace(/_/g, ' ')}
                           </span>
                           {!isStudent && (
-                            <div className="inv-card__actions">
+                            <div className='inv-card__actions'>
                               {canCheckout && (
-                                <button
-                                  className="row-btn row-btn--primary"
-                                  onClick={(e) => { e.stopPropagation(); setCheckoutItem(item); }}
-                                >Out</button>
+                                <button className='row-btn row-btn--primary' onClick={(e) => { e.stopPropagation(); setCheckoutItem(item); }}>Out</button>
                               )}
                               {canCheckin && (
-                                <button
-                                  className="row-btn"
-                                  onClick={(e) => { e.stopPropagation(); setCheckinItem(item); }}
-                                >In</button>
+                                <button className='row-btn' onClick={(e) => { e.stopPropagation(); setCheckinItem(item); }}>In</button>
                               )}
                             </div>
                           )}
