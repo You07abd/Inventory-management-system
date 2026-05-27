@@ -376,12 +376,12 @@ export default function CheckInMode() {
               .filter((item) => (item.category_id ?? 0) === ciSelectedCat?.id)
               .map((item) => {
                 const inCart = cartItemIds.has(item.id);
+                const noHolder = !item.current_holder_id;
                 return (
                   <button
                     key={item.id}
                     type="button"
                     className={`inv-card ${inCart ? "browse-card--in-cart" : ""} ${!item.current_holder_id ? "browse-card--disabled" : ""}`}
-                    data-status="out"
                     onClick={() => {
                       if (!inCart && item.current_holder_id) addToReturnCart(item);
                     }}
@@ -397,8 +397,7 @@ export default function CheckInMode() {
                     </div>
                     <div className="inv-card__footer">
                       <span className="inv-card__condition">
-                        <span className="inv-card__dot" />
-                        {item.condition.replace(/_/g, " ")}
+                        {inCart ? "in cart" : noHolder ? "no holder" : "checked out"}
                       </span>
                     </div>
                   </button>

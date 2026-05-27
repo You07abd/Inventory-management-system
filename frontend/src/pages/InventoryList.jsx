@@ -210,7 +210,6 @@ export default function InventoryList() {
                       <div
                         key={item.id}
                         className="inv-card"
-                        data-status={statusKey}
                         onClick={() => navigate(`/items/${item.id}`)}
                       >
                         <div className="inv-card__header">
@@ -220,12 +219,12 @@ export default function InventoryList() {
                         <div className="inv-card__name">{item.name}</div>
                         <div className="inv-card__meta">
                           <span>{categoryName}</span>
+                          <span className="inv-card__sep"> · </span>
                           <span>{item.location_name || "—"}</span>
                         </div>
                         <div className="inv-card__footer">
                           <span className="inv-card__condition">
-                            <span className="inv-card__dot" />
-                            {item.condition.replace(/_/g, " ")}
+                            {item.condition.replace(/_/g, " ")} · {fullyOut ? "out" : partial ? "partial" : "available"}
                           </span>
                           {!isStudent && (
                             <div className="inv-card__actions">

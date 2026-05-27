@@ -24,6 +24,7 @@ export default function CheckOutMode() {
   const [gridPage, setGridPage] = useState("categories");
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [pendingCartItem, setPendingCartItem] = useState(null);
+  const [pendingQty, setPendingQty] = useState(1);
   const [showCheckoutConfirm, setShowCheckoutConfirm] = useState(false);
 
   useEffect(() => {
@@ -92,8 +93,8 @@ export default function CheckOutMode() {
     setSelectedCategory(null);
   }
 
-  function addToCart(item) {
-    setCart((prev) => [...prev, { item, quantity: 1 }]);
+  function addToCart(item, quantity = 1) {
+    setCart((prev) => [...prev, { item, quantity }]);
   }
 
   function removeFromCart(itemId) {
@@ -236,7 +237,7 @@ export default function CheckOutMode() {
                             {reason ? (
                               <button className="row-btn" disabled style={{ opacity: 0.5 }}>{reason}</button>
                             ) : (
-                              <button className="row-btn row-btn--primary" onClick={() => setPendingCartItem(item)}>Add</button>
+                              <button className="row-btn row-btn--primary" onClick={() => { setPendingCartItem(item); setPendingQty(1); }}>Add</button>
                             )}
                           </td>
                         </tr>
@@ -345,9 +346,11 @@ export default function CheckOutMode() {
                   key={item.id}
                   type="button"
                   className={`inv-card ${reason ? "browse-card--disabled" : ""} ${cartItemIds.has(item.id) ? "browse-card--in-cart" : ""}`}
-                  data-status={statusKey}
                   onClick={() => {
-                    if (!reason) setPendingCartItem(item);
+                    if (!reason) {
+                      setPendingCartItem(item);
+                      setPendingQty(1);
+                    }
                   }}
                 >
                   <div className="inv-card__header">
@@ -357,12 +360,10 @@ export default function CheckOutMode() {
                   <div className="inv-card__name">{item.name}</div>
                   <div className="inv-card__meta">
                     <span>{item.location_name || "—"}</span>
-                    <span>{reason ?? `${item.available_quantity} available`}</span>
                   </div>
                   <div className="inv-card__footer">
                     <span className="inv-card__condition">
-                      <span className="inv-card__dot" />
-                      {item.condition.replace(/_/g, " ")}
+                      {item.condition.replace(/_/g, " ")} · {reason ?? "available"}
                     </span>
                   </div>
                 </button>
@@ -494,11 +495,11 @@ export default function CheckOutMode() {
       )}
 
       {pendingCartItem && (
-        <div className='modal-backdrop' onClick={() => setPendingCartItem(null)}>
+        <div className='modal-backdrop' onClick={() => { setPendingCartItem(null); setPendingQty(1); }}>
           <div className='modal' onClick={(e) => e.stopPropagation()}>
             <div className='modal-header'>
               <h2>Add to Cart?</h2>
-              <button className='modal-close' onClick={() => setPendingCartItem(null)}>×</button>
+              <button className='modal-close' onClick={() => { setPendingCartItem(null); setPendingQty(1); }}>×</button>
             </div>
             <div>
               <p style={{ fontWeight: 600 }}>{pendingCartItem.name}</p>
@@ -507,12 +508,27 @@ export default function CheckOutMode() {
                 {pendingCartItem.location_name ? ` · ${pendingCartItem.location_name}` : ''}
               </p>
               <p style={{ fontSize: '13px', marginTop: '6px' }}>
-                {pendingCartItem.available_quantity} unit{pendingCartItem.available_quantity !== 1 ? 's' : ''} available
+                {pendingQty} / {pendingCartItem.available_quantity} units available
               </p>
+              <div className="form-group" style={{ marginTop: "12px" }}>
+                <label className="form-label">Quantity</label>
+                <input
+                  className="form-input"
+                  type="number"
+                  min={1}
+                  max={pendingCartItem.available_quantity}
+                  value={pendingQty}
+                  onChange={(e) => {
+                    const v = Math.max(1, Math.min(pendingCartItem.available_quantity, parseInt(e.target.value, 10) || 1));
+                    setPendingQty(v);
+                  }}
+                  style={{ width: "100px" }}
+                />
+              </div>
             </div>
             <div className='modal-actions'>
-              <button className='btn btn-secondary' onClick={() => setPendingCartItem(null)}>Cancel</button>
-              <button className='btn btn-primary' onClick={() => { addToCart(pendingCartItem); setPendingCartItem(null); }}>Add to Cart</button>
+              <button className='btn btn-secondary' onClick={() => { setPendingCartItem(null); setPendingQty(1); }}>Cancel</button>
+              <button className='btn btn-primary' onClick={() => { addToCart(pendingCartItem, pendingQty); setPendingCartItem(null); setPendingQty(1); }}>Add to Cart</button>
             </div>
           </div>
         </div>
