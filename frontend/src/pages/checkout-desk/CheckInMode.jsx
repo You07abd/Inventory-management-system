@@ -147,6 +147,12 @@ export default function CheckInMode() {
     setReturnCart((prev) => prev.filter((r) => failed.some((f) => f.item.id === r.item.id)));
     setNotes("");
     setReceipt({ returned, failed });
+    try {
+      const refreshed = await itemsApi.list({ limit: 500 });
+      setAllItems(refreshed);
+    } catch (_) {
+      // non-critical, ignore
+    }
     setSubmitting(false);
   }
 

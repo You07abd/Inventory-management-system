@@ -4,37 +4,36 @@ import { categoriesApi } from "../api/categories";
 import { getErrorMessage } from "../api/client";
 import { itemsApi } from "../api/items";
 import { transactionsApi } from "../api/transactions";
-import { usersApi } from "../api/users";
 import { CATEGORY_META, DEFAULT_META } from "../utils/categoryMeta.jsx";
 
 export default function Dashboard() {
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [transactions, setTransactions] = useState([]);
-  const [users, setUsers] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
+    let active = true;
     (async () => {
       try {
-        const [itemData, catData, txData, userData] = await Promise.all([
+        const [itemData, catData, txData] = await Promise.all([
           itemsApi.list(),
           categoriesApi.list(),
           transactionsApi.list({ limit: 8 }),
-          usersApi.list(),
         ]);
+        if (!active) return;
         setItems(itemData);
         setCategories(catData);
         setTransactions(txData);
-        setUsers(userData);
       } catch (err) {
-        setError(getErrorMessage(err));
+        if (active) setError(getErrorMessage(err));
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     })();
+    return () => { active = false; };
   }, []);
 
   const totalUnits = items.reduce((s, i) => s + i.quantity, 0);

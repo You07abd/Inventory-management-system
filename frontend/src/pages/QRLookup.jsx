@@ -30,7 +30,8 @@ export default function QRLookup() {
     }
   }
 
-  const isAvailable = item && item.available_quantity >= item.quantity;
+  const isFullyAvailable = item && item.available_quantity === item.quantity;
+  const isPartiallyAvailable = item && item.available_quantity > 0 && item.available_quantity < item.quantity;
 
   return (
     <>
@@ -68,8 +69,8 @@ export default function QRLookup() {
             <div className="panel">
               <div className="panel-head">
                 <h3>{item.name}</h3>
-                <span className={`badge ${isAvailable ? "badge--available" : "badge--checked-out"}`}>
-                  {isAvailable ? "Available" : "Checked Out"}
+                <span className={`badge ${isFullyAvailable || isPartiallyAvailable ? "badge--available" : "badge--checked-out"}`}>
+                  {isFullyAvailable ? "Available" : isPartiallyAvailable ? "Partially Available" : "Checked Out"}
                 </span>
               </div>
               <div className="panel-body">

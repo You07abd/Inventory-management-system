@@ -7,8 +7,11 @@ const client = axios.create({
   }
 });
 
-export function getErrorMessage(error) {
-  return error?.response?.data?.detail || error?.message || "Request failed";
+export function getErrorMessage(err) {
+  const detail = err?.response?.data?.detail;
+  if (Array.isArray(detail)) return detail.map((d) => d.msg).join(", ");
+  if (typeof detail === "string") return detail;
+  return err?.message || "An unexpected error occurred.";
 }
 
 export default client;

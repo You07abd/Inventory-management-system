@@ -10,25 +10,34 @@ export default function Transactions() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
-  async function load() {
-    setLoading(true);
-    setError("");
-    try {
-      const params = selectedItemId ? { item_id: Number(selectedItemId) } : {};
-      const [transactionData, itemData] = await Promise.all([
-        transactionsApi.list(params),
-        itemsApi.list(),
-      ]);
-      setTransactions(transactionData);
-      setItems(itemData);
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const data = await itemsApi.list();
+        if (active) setItems(data);
+      } catch (err) {
+        if (active) setError(getErrorMessage(err));
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
-  useEffect(() => { load(); }, [selectedItemId]);
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    (async () => {
+      try {
+        const data = await transactionsApi.list(selectedItemId ? { item_id: selectedItemId } : {});
+        if (active) setTransactions(data);
+      } catch (err) {
+        if (active) setError(getErrorMessage(err));
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [selectedItemId]);
 
   function itemLabel(id) {
     const item = items.find((entry) => entry.id === id);

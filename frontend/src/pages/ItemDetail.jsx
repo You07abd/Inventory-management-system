@@ -54,20 +54,54 @@ export default function ItemDetail() {
     }
   }
 
-  useEffect(() => { load(); }, [itemId]);
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError("");
+    (async () => {
+      try {
+        const [itemData, categoryData, locationData, userData, transactionData] = await Promise.all([
+          itemsApi.get(itemId),
+          categoriesApi.list(),
+          locationsApi.list(),
+          usersApi.list(),
+          transactionsApi.list({ item_id: itemId }),
+        ]);
+        if (!active) return;
+        setItem(itemData);
+        setCategories(categoryData);
+        setLocations(locationData);
+        setUsers(userData);
+        setTransactions(transactionData);
+      } catch (err) {
+        if (active) setError(getErrorMessage(err));
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [itemId]);
 
   const checkedOut = useMemo(() => (!item ? 0 : item.quantity - item.available_quantity), [item]);
 
   async function checkout(payload) {
-    await itemsApi.checkout(item.id, payload);
-    setCheckoutOpen(false);
-    await load();
+    try {
+      await itemsApi.checkout(item.id, payload);
+      setCheckoutOpen(false);
+      await load();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
   }
 
   async function checkin(payload) {
-    await itemsApi.checkin(item.id, payload);
-    setCheckinOpen(false);
-    await load();
+    try {
+      await itemsApi.checkin(item.id, payload);
+      setCheckinOpen(false);
+      await load();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
   }
 
   if (loading) return <div className="loading" style={{ margin: "24px" }}>Loading item...</div>;

@@ -44,7 +44,28 @@ export default function InventoryList() {
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError("");
+    (async () => {
+      try {
+        const [itemData, categoryData, locationData, userData] = await Promise.all([
+          itemsApi.list(), categoriesApi.list(), locationsApi.list(), usersApi.list(),
+        ]);
+        if (!active) return;
+        setItems(itemData);
+        setCategories(categoryData);
+        setLocations(locationData);
+        setUsers(userData);
+      } catch (err) {
+        if (active) setError(getErrorMessage(err));
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -57,15 +78,23 @@ export default function InventoryList() {
   }, [items, query, conditionFilter]);
 
   async function checkout(payload) {
-    await itemsApi.checkout(checkoutItem.id, payload);
-    setCheckoutItem(null);
-    await load();
+    try {
+      await itemsApi.checkout(checkoutItem.id, payload);
+      setCheckoutItem(null);
+      await load();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
   }
 
   async function checkin(payload) {
-    await itemsApi.checkin(checkinItem.id, payload);
-    setCheckinItem(null);
-    await load();
+    try {
+      await itemsApi.checkin(checkinItem.id, payload);
+      setCheckinItem(null);
+      await load();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
   }
 
   return (
@@ -119,6 +148,8 @@ export default function InventoryList() {
                   <option value="good">Good</option>
                   <option value="fair">Fair</option>
                   <option value="poor">Poor</option>
+                  <option value="needs_inspection">Needs Inspection</option>
+                  <option value="damaged">Damaged</option>
                 </select>
               </div>
               {loading ? (
@@ -156,6 +187,8 @@ export default function InventoryList() {
                     <option value="good">Good</option>
                     <option value="fair">Fair</option>
                     <option value="poor">Poor</option>
+                    <option value="needs_inspection">Needs Inspection</option>
+                    <option value="damaged">Damaged</option>
                   </select>
                 </div>
               </div>

@@ -22,16 +22,18 @@ export default function AddItem() {
   });
 
   useEffect(() => {
-    async function loadOptions() {
+    let active = true;
+    (async () => {
       try {
-        const [categoryData, locationData] = await Promise.all([categoriesApi.list(), locationsApi.list()]);
-        setCategories(categoryData);
-        setLocations(locationData);
+        const [cats, locs] = await Promise.all([categoriesApi.list(), locationsApi.list()]);
+        if (!active) return;
+        setCategories(cats);
+        setLocations(locs);
       } catch (err) {
-        setError(getErrorMessage(err));
+        if (active) setError(getErrorMessage(err));
       }
-    }
-    loadOptions();
+    })();
+    return () => { active = false; };
   }, []);
 
   function update(field, value) {
@@ -97,6 +99,8 @@ export default function AddItem() {
                 <option value="good">Good</option>
                 <option value="fair">Fair</option>
                 <option value="poor">Poor</option>
+                <option value="needs_inspection">Needs Inspection</option>
+                <option value="damaged">Damaged</option>
               </select>
             </div>
             <div className="form-group">
