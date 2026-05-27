@@ -114,8 +114,8 @@ export default function Dashboard() {
                     {catCounts.length} categories
                   </span>
                 </div>
-                <div className="panel-body" style={{ flex: 1, overflowY: "auto" }}>
-                  <div className="browse-grid" style={{ padding: "4px 0" }}>
+                <div className="panel-body" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                  <div className="browse-grid" style={{ flex: 1, minHeight: 0, gridTemplateColumns: "repeat(3, 1fr)", gridAutoRows: "1fr", padding: "8px", gap: "10px" }}>
                     {catCounts.map((c) => {
                       const meta = CATEGORY_META[c.name] ?? DEFAULT_META;
                       const Icon = meta.Icon;
@@ -129,9 +129,6 @@ export default function Dashboard() {
                             <Icon />
                           </div>
                           <span className="browse-card__label">{c.name}</span>
-                          <span className="browse-card__sub">
-                            {c.count} {c.count === 1 ? "item" : "items"}
-                          </span>
 
                           {/* Slide-up overlay */}
                           <div
