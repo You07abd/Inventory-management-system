@@ -204,9 +204,10 @@ export default function CheckInMode() {
               </div>
             )}
             <div className="table-wrap">
-              <table>
+              <table className="inv-table">
                 <thead>
                   <tr>
+                    <th style={{ width: "4px", padding: 0 }} />
                     <th><div style={{ padding: "9px 14px" }}>Code</div></th>
                     <th><div style={{ padding: "9px 14px" }}>Name</div></th>
                     <th><div style={{ padding: "9px 14px" }}>Held by</div></th>
@@ -216,8 +217,9 @@ export default function CheckInMode() {
                 </thead>
                 <tbody>
                   {filtered.map((item) => (
-                    <tr key={item.id}>
-                      <td><span className="asset-code" style={{ color: "#059669" }}>{item.asset_code}</span></td>
+                    <tr key={item.id} data-status="out">
+                      <td className="inv-table__accent" />
+                      <td><span className="asset-code">{item.asset_code}</span></td>
                       <td>{item.name}</td>
                       <td style={{ color: "var(--color-muted)", fontSize: "13px" }}>{holderMap[item.current_holder_id] ?? "—"}</td>
                       <td>{item.quantity - item.available_quantity}</td>
@@ -232,7 +234,7 @@ export default function CheckInMode() {
                     </tr>
                   ))}
                   {filtered.length === 0 && (
-                    <tr><td colSpan={5}><div className="empty-state">No items found.</div></td></tr>
+                    <tr><td colSpan={6}><div className="empty-state">No items found.</div></td></tr>
                   )}
                 </tbody>
               </table>
@@ -271,9 +273,10 @@ export default function CheckInMode() {
                 }}>
                   <div style={{ overflow: 'hidden' }}>
                     <div className="table-wrap">
-                      <table>
+                      <table className="inv-table">
                         <thead>
                           <tr>
+                            <th style={{ width: "4px", padding: 0 }} />
                             <th><div style={{ padding: "9px 14px" }}>Code</div></th>
                             <th><div style={{ padding: "9px 14px" }}>Name</div></th>
                             <th><div style={{ padding: "9px 14px" }}>Held by</div></th>
@@ -283,8 +286,9 @@ export default function CheckInMode() {
                         </thead>
                         <tbody>
                           {items.map((item) => (
-                            <tr key={item.id}>
-                              <td><span className="asset-code" style={{ color: "#059669" }}>{item.asset_code}</span></td>
+                            <tr key={item.id} data-status="out">
+                              <td className="inv-table__accent" />
+                              <td><span className="asset-code">{item.asset_code}</span></td>
                               <td>{item.name}</td>
                               <td style={{ color: "var(--color-muted)", fontSize: "13px" }}>{holderMap[item.current_holder_id] ?? "—"}</td>
                               <td>{item.quantity - item.available_quantity}</td>
@@ -367,7 +371,7 @@ export default function CheckInMode() {
               {returnableItems.filter((item) => (item.category_id ?? 0) === ciSelectedCat?.id).length} items
             </span>
           </div>
-          <div className="browse-grid">
+          <div className="inv-grid">
             {returnableItems
               .filter((item) => (item.category_id ?? 0) === ciSelectedCat?.id)
               .map((item) => {
@@ -376,16 +380,27 @@ export default function CheckInMode() {
                   <button
                     key={item.id}
                     type="button"
-                    className={`browse-card ${inCart ? "browse-card--in-cart" : ""} ${!item.current_holder_id ? "browse-card--disabled" : ""}`}
+                    className={`inv-card ${inCart ? "browse-card--in-cart" : ""} ${!item.current_holder_id ? "browse-card--disabled" : ""}`}
+                    data-status="out"
                     onClick={() => {
                       if (!inCart && item.current_holder_id) addToReturnCart(item);
                     }}
                   >
-                    <span className="browse-card__code">{item.asset_code}</span>
-                    <span className="browse-card__label">{item.name}</span>
-                    <span className="browse-card__sub">Held by {holderMap[item.current_holder_id] ?? "—"}</span>
-                    <span className="browse-card__sub">{item.quantity - item.available_quantity} out</span>
-                    {inCart && <span className="badge badge--available">Added</span>}
+                    <div className="inv-card__header">
+                      <span className="inv-card__code">{item.asset_code}</span>
+                      <span className="inv-card__avail">{item.quantity - item.available_quantity} out</span>
+                    </div>
+                    <div className="inv-card__name">{item.name}</div>
+                    <div className="inv-card__meta">
+                      <span>Held by {holderMap[item.current_holder_id] ?? "—"}</span>
+                      <span>{inCart ? "Added" : "Ready to return"}</span>
+                    </div>
+                    <div className="inv-card__footer">
+                      <span className="inv-card__condition">
+                        <span className="inv-card__dot" />
+                        {item.condition.replace(/_/g, " ")}
+                      </span>
+                    </div>
                   </button>
                 );
               })}

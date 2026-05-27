@@ -202,9 +202,10 @@ export default function CheckOutMode() {
                 </div>
               )}
               <div className="table-wrap" style={{ maxHeight: "420px", overflowY: "auto" }}>
-                <table>
+                <table className="inv-table">
                   <thead style={{ position: "sticky", top: 0, zIndex: 1 }}>
                     <tr>
+                      <th style={{ width: "4px", padding: 0 }} />
                       <th><div style={{ padding: "9px 14px" }}>Code</div></th>
                       <th><div style={{ padding: "9px 14px" }}>Name</div></th>
                       <th><div style={{ padding: "9px 14px" }}>Location</div></th>
@@ -215,14 +216,20 @@ export default function CheckOutMode() {
                   <tbody>
                     {filtered.map((item) => {
                       const reason = itemDisabledReason(item);
+                      const checkedOut = item.quantity - item.available_quantity;
+                      const partial = checkedOut > 0 && item.available_quantity > 0;
+                      const fullyOut = item.available_quantity === 0;
+                      const statusKey = fullyOut ? "out" : partial ? "partial" : "available";
                       return (
-                        <tr key={item.id} style={{ opacity: reason && reason !== "In cart" ? 0.5 : 1 }}>
+                        <tr key={item.id} data-status={statusKey} style={{ opacity: reason && reason !== "In cart" ? 0.5 : 1 }}>
+                          <td className="inv-table__accent" />
                           <td><span className="asset-code">{item.asset_code}</span></td>
                           <td>{item.name}</td>
                           <td style={{ color: "var(--color-muted)", fontSize: "13px" }}>{item.location_name || "—"}</td>
                           <td>
-                            <span className={`badge badge--${item.status.replace(/_/g, "-")}`}>
-                              {item.status.replace(/_/g, " ")}
+                            <span className={`inv-table__status inv-table__status--${statusKey}`}>
+                              <span className="inv-table__dot" />
+                              {fullyOut ? "Checked Out" : partial ? "Partial" : "Available"}
                             </span>
                           </td>
                           <td>
@@ -236,7 +243,7 @@ export default function CheckOutMode() {
                       );
                     })}
                     {filtered.length === 0 && (
-                      <tr><td colSpan={5}>
+                      <tr><td colSpan={6}>
                         <div className="empty-state">No items found.</div>
                       </td></tr>
                     )}
@@ -326,27 +333,38 @@ export default function CheckOutMode() {
             <h3>{selectedCategory?.name ?? "Items"}</h3>
             <span style={{ color: "var(--color-muted)", fontSize: "13px" }}>{selectedCategoryItems.length} items</span>
           </div>
-          <div className="browse-grid">
+          <div className="inv-grid">
             {selectedCategoryItems.map((item) => {
               const reason = itemDisabledReason(item);
+              const checkedOut = item.quantity - item.available_quantity;
+              const partial = checkedOut > 0 && item.available_quantity > 0;
+              const fullyOut = item.available_quantity === 0;
+              const statusKey = fullyOut ? "out" : partial ? "partial" : "available";
               return (
                 <button
                   key={item.id}
                   type="button"
-                  className={`browse-card ${reason ? "browse-card--disabled" : ""} ${cartItemIds.has(item.id) ? "browse-card--in-cart" : ""}`}
+                  className={`inv-card ${reason ? "browse-card--disabled" : ""} ${cartItemIds.has(item.id) ? "browse-card--in-cart" : ""}`}
+                  data-status={statusKey}
                   onClick={() => {
                     if (!reason) setPendingCartItem(item);
                   }}
                 >
-                  <span className={`badge badge--${item.status.replace(/_/g, "-")}`}>
-                    {item.status.replace(/_/g, " ")}
-                  </span>
-                  <span className="browse-card__code">{item.asset_code}</span>
-                  <span className="browse-card__label">{item.name}</span>
-                  <span className="browse-card__sub">{item.location_name || "—"}</span>
-                  <span className="browse-card__sub">
-                    {reason ?? `${item.available_quantity} available`}
-                  </span>
+                  <div className="inv-card__header">
+                    <span className="inv-card__code">{item.asset_code}</span>
+                    <span className="inv-card__avail">{item.available_quantity}/{item.quantity}</span>
+                  </div>
+                  <div className="inv-card__name">{item.name}</div>
+                  <div className="inv-card__meta">
+                    <span>{item.location_name || "—"}</span>
+                    <span>{reason ?? `${item.available_quantity} available`}</span>
+                  </div>
+                  <div className="inv-card__footer">
+                    <span className="inv-card__condition">
+                      <span className="inv-card__dot" />
+                      {item.condition.replace(/_/g, " ")}
+                    </span>
+                  </div>
                 </button>
               );
             })}

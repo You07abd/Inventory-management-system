@@ -220,9 +220,7 @@ export default function InventoryList() {
                         <div className="inv-card__name">{item.name}</div>
                         <div className="inv-card__meta">
                           <span>{categoryName}</span>
-                          {item.location_name && (
-                            <><span className="inv-card__sep">·</span><span>{item.location_name}</span></>
-                          )}
+                          <span>{item.location_name || "—"}</span>
                         </div>
                         <div className="inv-card__footer">
                           <span className="inv-card__condition">
