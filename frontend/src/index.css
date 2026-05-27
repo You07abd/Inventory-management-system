@@ -476,6 +476,8 @@ thead th { padding: 0; }
   line-height: 1.3;
   overflow-wrap: break-word;
   text-align: center;
+  width: 100%;
+  white-space: normal;
 }
 .browse-card__sub {
   font-size: 11px;
@@ -518,10 +520,6 @@ thead th { padding: 0; }
   font-size: 10.5px;
   line-height: 1.45;
   opacity: 0.85;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 .cat-card-overlay__divider {
   height: 1px;
