@@ -158,7 +158,7 @@ export default function Transactions() {
                       style={overdue ? OVERDUE_ROW_STYLE : undefined}
                     >
                       <td>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "3px" }}>
                           <span className={`badge ${tx.type === "checkout" ? "badge--checked-out" : "badge--available"}`}>
                             {tx.type === "checkout" ? "Check Out" : "Check In"}
                           </span>
