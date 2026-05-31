@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { BrowserQRCodeReader } from "@zxing/browser";
+import jsQR from "jsqr";
 import { unitsApi } from "../../api/units";
 
 export default function LiveScanMode({ cart, onAddUnit, onClose }) {
   const videoRef = useRef(null);
-  const controlsRef = useRef(null);
-  const cooldownRef = useRef(new Map()); // Map<assetCode, timestamp>
+  const canvasRef = useRef(null);
+  const rafRef = useRef(null);
+  const streamRef = useRef(null);
+  const cooldownRef = useRef(new Map());
   const cartRef = useRef(cart);
   const onAddUnitRef = useRef(onAddUnit);
   const [toasts, setToasts] = useState([]);
@@ -21,42 +23,38 @@ export default function LiveScanMode({ cart, onAddUnit, onClose }) {
   }
 
   useEffect(() => {
-    if (!videoRef.current) {
+    if (!videoRef.current || !canvasRef.current) {
       setCameraError("Camera unavailable — please reload.");
       return;
     }
 
     let mounted = true;
-    const codeReader = new BrowserQRCodeReader();
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
 
-    async function handleResult(result) {
-      if (!result || !mounted) return;
-      const assetCode = result.getText();
+    async function handleCode(assetCode) {
+      if (!mounted) return;
 
-      // 3-second cooldown per code
       const now = Date.now();
       const last = cooldownRef.current.get(assetCode);
       if (last && now - last < 3000) return;
       cooldownRef.current.set(assetCode, now);
       setTimeout(() => cooldownRef.current.delete(assetCode), 3000);
 
-      // Duplicate check against live cart
       const inCart = cartRef.current.some((c) => c.unit.asset_code === assetCode);
       if (inCart) {
         addToast(`${assetCode} already in cart`, "error");
         return;
       }
 
-      // Unit lookup
       try {
         const unit = await unitsApi.getByAssetCode(assetCode);
         if (!mounted) return;
-
         if (unit.status !== "available") {
           addToast(`${assetCode} is already checked out`, "error");
           return;
         }
-
         onAddUnitRef.current(unit);
         addToast(`${assetCode} added`, "success");
       } catch (err) {
@@ -69,23 +67,57 @@ export default function LiveScanMode({ cart, onAddUnit, onClose }) {
       }
     }
 
-    codeReader
-      .decodeFromVideoDevice(undefined, videoRef.current, (result) => {
-        if (result) handleResult(result);
-      })
-      .then((controls) => {
-        if (mounted) controlsRef.current = controls;
-        else controls.stop();
-      })
-      .catch(() => {
-        if (mounted) setCameraError("Camera access denied — check browser permissions");
-      });
+    function scanFrame() {
+      if (!mounted) return;
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, canvas.width, canvas.height, {
+          inversionAttempts: "dontInvert",
+        });
+        if (code?.data) handleCode(code.data);
+      }
+      rafRef.current = requestAnimationFrame(scanFrame);
+    }
+
+    async function start() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+        });
+        if (!mounted) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        streamRef.current = stream;
+        video.srcObject = stream;
+        await video.play();
+        if (!mounted) return;
+        scanFrame();
+      } catch (err) {
+        if (!mounted) return;
+        const denied = err.name === "NotAllowedError" || err.name === "PermissionDeniedError";
+        setCameraError(
+          denied
+            ? "Camera access denied — check browser permissions"
+            : "Could not start camera — please reload."
+        );
+      }
+    }
+
+    start();
 
     return () => {
       mounted = false;
-      controlsRef.current?.stop();
+      cancelAnimationFrame(rafRef.current);
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      if (video.srcObject) {
+        video.srcObject = null;
+      }
     };
-  }, []); // camera starts once on mount, stops on unmount
+  }, []);
 
   return (
     <div className="panel">
@@ -103,8 +135,8 @@ export default function LiveScanMode({ cart, onAddUnit, onClose }) {
         <div className="live-scan__camera-error">{cameraError}</div>
       ) : (
         <div className="live-scan__container">
-          <video ref={videoRef} className="live-scan__video" muted playsInline
-            onLoadedMetadata={(e) => e.target.play().catch(() => {})} />
+          <video ref={videoRef} className="live-scan__video" muted playsInline />
+          <canvas ref={canvasRef} style={{ display: "none" }} />
           <div className="live-scan__viewfinder" />
           <div className="live-scan__hint">Aim at a unit QR code</div>
           <div className="live-scan__toasts">
