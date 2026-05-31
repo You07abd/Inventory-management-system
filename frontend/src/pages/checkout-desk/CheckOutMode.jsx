@@ -6,6 +6,7 @@ import { usersApi } from "../../api/users";
 import { unitsApi } from "../../api/units";
 import { CATEGORY_META, DEFAULT_META, BoxIcon } from "../../utils/categoryMeta.jsx";
 import DatePicker from "../../components/DatePicker";
+import LiveScanMode from "./LiveScanMode";
 
 const emptyForm = { user_id: "", due_date: "", notes: "" };
 
@@ -32,6 +33,7 @@ export default function CheckOutMode() {
   const [pendingCartItem, setPendingCartItem] = useState(null);
   const [pendingQty, setPendingQty] = useState(1);
   const [showCheckoutConfirm, setShowCheckoutConfirm] = useState(false);
+  const [liveScanActive, setLiveScanActive] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -159,13 +161,23 @@ export default function CheckOutMode() {
           <input className="form-input" value={query} onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by asset code, name, or serial number..." style={{ flex: 1 }} />
           <button type="button" className={`btn ${viewMode === "grid" ? "btn-primary" : "btn-secondary"}`}
-            onClick={() => switchView("grid")} style={{ whiteSpace: "nowrap" }}>Grid</button>
+            onClick={() => switchView("grid")} style={{ whiteSpace: "nowrap" }} disabled={liveScanActive}>Grid</button>
           <button type="button" className={`btn ${viewMode === "list" ? "btn-primary" : "btn-secondary"}`}
-            onClick={() => switchView("list")} style={{ whiteSpace: "nowrap" }}>List</button>
+            onClick={() => switchView("list")} style={{ whiteSpace: "nowrap" }} disabled={liveScanActive}>List</button>
+          <button type="button" className={`btn ${liveScanActive ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => setLiveScanActive((v) => !v)} style={{ whiteSpace: "nowrap" }}>
+            Live Scan
+          </button>
         </div>
       </div>
 
-      {loading ? (
+      {liveScanActive ? (
+        <LiveScanMode
+          cart={cart}
+          onAddUnit={addToCart}
+          onClose={() => setLiveScanActive(false)}
+        />
+      ) : loading ? (
         <div className="loading">Loading items...</div>
       ) : viewMode === "list" || query.trim() ? (
         <div className="panel">
