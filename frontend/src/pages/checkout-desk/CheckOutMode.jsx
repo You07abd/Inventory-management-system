@@ -5,6 +5,7 @@ import { categoriesApi } from "../../api/categories";
 import { usersApi } from "../../api/users";
 import { unitsApi } from "../../api/units";
 import { CATEGORY_META, DEFAULT_META, BoxIcon } from "../../utils/categoryMeta.jsx";
+import DatePicker from "../../components/DatePicker";
 
 const emptyForm = { user_id: "", due_date: "", notes: "" };
 
@@ -389,8 +390,11 @@ export default function CheckOutMode() {
                   </div>
                   <div className="form-group">
                     <label className="form-label">Expected Return Date</label>
-                    <input className="form-input" type="date" min={new Date().toLocaleDateString("en-CA")}
-                      value={form.due_date} onChange={(e) => updateForm("due_date", e.target.value)} />
+                    <DatePicker
+                      min={new Date().toLocaleDateString("en-CA")}
+                      value={form.due_date}
+                      onChange={(val) => updateForm("due_date", val)}
+                    />
                   </div>
                   <div className="form-group wide">
                     <label className="form-label">Notes</label>
