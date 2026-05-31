@@ -183,7 +183,10 @@ def checkout_unit(unit_id: int, payload: UnitCheckoutRequest, db: Session = Depe
     db.add(tx)
     db.commit()
     db.refresh(tx)
-    return tx
+    return db.query(Transaction).options(
+        joinedload(Transaction.unit),
+        joinedload(Transaction.user),
+    ).filter(Transaction.id == tx.id).first()
 
 
 @router.post("/units/{unit_id}/checkin", response_model=TransactionSchema, status_code=status.HTTP_201_CREATED)
@@ -214,7 +217,10 @@ def checkin_unit(unit_id: int, payload: UnitCheckinRequest, db: Session = Depend
     db.add(tx)
     db.commit()
     db.refresh(tx)
-    return tx
+    return db.query(Transaction).options(
+        joinedload(Transaction.unit),
+        joinedload(Transaction.user),
+    ).filter(Transaction.id == tx.id).first()
 
 
 @router.post("/units/cart-checkout", response_model=UnitCartCheckoutResponse, status_code=status.HTTP_201_CREATED)

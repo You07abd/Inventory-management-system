@@ -27,6 +27,7 @@ class Transaction(TransactionBase):
 
     id: int
     created_at: datetime
+    user_name: str | None = None
 
 
 # Cart checkout schemas

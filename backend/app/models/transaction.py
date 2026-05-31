@@ -30,3 +30,7 @@ class Transaction(Base):
     @property
     def unit_asset_code(self) -> str | None:
         return self.unit.asset_code if self.unit else None
+
+    @property
+    def user_name(self) -> str | None:
+        return self.user.name if self.user else None

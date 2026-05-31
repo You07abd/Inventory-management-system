@@ -188,10 +188,12 @@ def cart_checkout(payload: CartCheckoutRequest, db: Session = Depends(get_db)):
         created.append(tx)
 
     db.commit()
-    for tx in created:
-        db.refresh(tx)
-
-    return CartCheckoutResponse(session_id=session_id, transactions=created)
+    tx_ids = [tx.id for tx in created]
+    loaded = db.query(Transaction).options(
+        joinedload(Transaction.unit),
+        joinedload(Transaction.user),
+    ).filter(Transaction.id.in_(tx_ids)).all()
+    return CartCheckoutResponse(session_id=session_id, transactions=loaded)
 
 
 @router.get("/{item_id}", response_model=ItemSchema)
@@ -257,7 +259,10 @@ def checkout_item(item_id: int, payload: CheckoutRequest, db: Session = Depends(
     db.add(transaction)
     db.commit()
     db.refresh(transaction)
-    return transaction
+    return db.query(Transaction).options(
+        joinedload(Transaction.unit),
+        joinedload(Transaction.user),
+    ).filter(Transaction.id == transaction.id).first()
 
 
 @router.post("/{item_id}/checkin", response_model=TransactionSchema, status_code=status.HTTP_201_CREATED)
@@ -287,4 +292,7 @@ def checkin_item(item_id: int, payload: CheckinRequest, db: Session = Depends(ge
     db.add(transaction)
     db.commit()
     db.refresh(transaction)
-    return transaction
+    return db.query(Transaction).options(
+        joinedload(Transaction.unit),
+        joinedload(Transaction.user),
+    ).filter(Transaction.id == transaction.id).first()
