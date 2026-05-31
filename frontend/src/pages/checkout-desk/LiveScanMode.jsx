@@ -103,7 +103,8 @@ export default function LiveScanMode({ cart, onAddUnit, onClose }) {
         <div className="live-scan__camera-error">{cameraError}</div>
       ) : (
         <div className="live-scan__container">
-          <video ref={videoRef} className="live-scan__video" autoPlay muted playsInline />
+          <video ref={videoRef} className="live-scan__video" muted playsInline
+            onLoadedMetadata={(e) => e.target.play().catch(() => {})} />
           <div className="live-scan__viewfinder" />
           <div className="live-scan__hint">Aim at a unit QR code</div>
           <div className="live-scan__toasts">
