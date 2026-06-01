@@ -157,7 +157,7 @@ python seed.py
 Start the backend:
 
 ```powershell
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --reload --port 8000
 ```
 
 API: **http://localhost:8000** | Docs: **http://localhost:8000/docs**
@@ -240,7 +240,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 alembic upgrade head
 python seed.py   # local DB only
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --reload --port 8000
 ```
 
 API: **http://localhost:8000** | Docs: **http://localhost:8000/docs**
