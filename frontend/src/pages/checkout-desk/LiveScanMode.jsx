@@ -135,7 +135,7 @@ export default function LiveScanMode({ cart, onAddUnit, onClose }) {
         <div className="live-scan__camera-error">{cameraError}</div>
       ) : (
         <div className="live-scan__container">
-          <video ref={videoRef} className="live-scan__video" muted playsInline />
+          <video ref={videoRef} className="live-scan__video" muted playsInline style={{ transform: 'scaleX(-1)' }} />
           <canvas ref={canvasRef} style={{ display: "none" }} />
           <div className="live-scan__viewfinder" />
           <div className="live-scan__hint">Aim at a unit QR code</div>
