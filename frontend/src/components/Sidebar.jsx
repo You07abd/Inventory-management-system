@@ -58,6 +58,19 @@ const NAV_MAIN = [
       </svg>
     ),
   },
+  {
+    to: "/categories/new",
+    label: "Add Category",
+    studentAllowed: false,
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20.59 13.41 13.41 20.59a2 2 0 0 1-2.82 0L3 13V3h10l7.59 7.59a2 2 0 0 1 0 2.82z"/>
+        <line x1="7" y1="7" x2="7.01" y2="7"/>
+        <line x1="17" y1="4" x2="17" y2="10"/>
+        <line x1="14" y1="7" x2="20" y2="7"/>
+      </svg>
+    ),
+  },
 ];
 
 const NAV_RECORDS = [

@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext.jsx";
 import Sidebar from "./components/Sidebar.jsx";
+import AddCategory from "./pages/AddCategory.jsx";
 import AddItem from "./pages/AddItem.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import InventoryList from "./pages/InventoryList.jsx";
@@ -39,6 +40,7 @@ function AppShell() {
           <Route path="/" element={<ProtectedRoute allowStudent={false}><Dashboard /></ProtectedRoute>} />
           <Route path="/inventory" element={<ProtectedRoute><InventoryList /></ProtectedRoute>} />
           <Route path="/inventory/new" element={<ProtectedRoute allowStudent={false}><AddItem /></ProtectedRoute>} />
+          <Route path="/categories/new" element={<ProtectedRoute allowStudent={false}><AddCategory /></ProtectedRoute>} />
           <Route path="/items/:itemId" element={<ProtectedRoute><ItemDetail /></ProtectedRoute>} />
           <Route path="/qr-lookup" element={<ProtectedRoute allowStudent={false}><QRLookup /></ProtectedRoute>} />
           <Route path="/checkout-desk" element={<ProtectedRoute><CheckoutDesk /></ProtectedRoute>} />

@@ -4,6 +4,8 @@ from pydantic import BaseModel, ConfigDict
 class CategoryBase(BaseModel):
     name: str
     description: str | None = None
+    icon: str | None = None
+    color: str | None = None
 
 
 class CategoryCreate(CategoryBase):
@@ -13,6 +15,8 @@ class CategoryCreate(CategoryBase):
 class CategoryUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
+    icon: str | None = None
+    color: str | None = None
 
 
 class Category(CategoryBase):

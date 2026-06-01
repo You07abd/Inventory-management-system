@@ -44,6 +44,40 @@ export const BoxIcon = () => (
     <polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
   </svg>
 );
+export const TagIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+    <line x1="7" y1="7" x2="7.01" y2="7"/>
+  </svg>
+);
+export const FlaskConicalIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10 2v7.31L4.39 19.44A2 2 0 0 0 6.14 22h11.72a2 2 0 0 0 1.75-2.56L14 9.31V2"/>
+    <path d="M8.5 2h7"/>
+    <path d="M7 16h10"/>
+  </svg>
+);
+export const BookOpenIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+  </svg>
+);
+export const MonitorIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="3" width="20" height="14" rx="2"/>
+    <line x1="8" y1="21" x2="16" y2="21"/>
+    <line x1="12" y1="17" x2="12" y2="21"/>
+  </svg>
+);
+export const Settings2Icon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 7h-9"/>
+    <path d="M14 17H5"/>
+    <circle cx="17" cy="17" r="3"/>
+    <circle cx="7" cy="7" r="3"/>
+  </svg>
+);
 
 export const CATEGORY_META = {
   'Drones':              { color: '#2563eb', bg: '#eff6ff', Icon: DroneIcon },
@@ -54,3 +88,26 @@ export const CATEGORY_META = {
   'Safety Equipment':    { color: '#dc2626', bg: '#fef2f2', Icon: ShieldIcon },
 };
 export const DEFAULT_META = { color: '#94a3b8', bg: '#f8fafc', Icon: BoxIcon };
+
+export const ICON_MAP = {
+  tag: TagIcon,
+  box: BoxIcon,
+  wrench: WrenchIcon,
+  flask: FlaskConicalIcon,
+  book: BookOpenIcon,
+  monitor: MonitorIcon,
+  tool: Settings2Icon,
+};
+
+export function getCategoryMeta(category) {
+  const fallback = CATEGORY_META[category?.name] ?? DEFAULT_META;
+  const Icon = ICON_MAP[category?.icon] ?? fallback.Icon;
+  const color = category?.color || fallback.color;
+
+  return {
+    ...fallback,
+    color,
+    bg: category?.color ? `${color}1a` : fallback.bg,
+    Icon,
+  };
+}
