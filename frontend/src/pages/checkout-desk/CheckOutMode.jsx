@@ -34,6 +34,9 @@ export default function CheckOutMode() {
   const [pendingQty, setPendingQty] = useState(1);
   const [showCheckoutConfirm, setShowCheckoutConfirm] = useState(false);
   const [liveScanActive, setLiveScanActive] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [categoryOrder, setCategoryOrder] = useState([]);
+  const [hiddenCategoryIds, setHiddenCategoryIds] = useState([]);
 
   useEffect(() => {
     let active = true;
@@ -51,6 +54,18 @@ export default function CheckOutMode() {
         setAllItems(items);
         setUsers(loadedUsers);
         setCategories(loadedCats);
+        const existingIds = loadedCats.map(c => c.id);
+        const hasUncategorized = items.some(i => i.category_id === null);
+        const allAvailableIds = [...existingIds, ...(hasUncategorized ? [null] : [])];
+        const rawOrder = localStorage.getItem('checkout_cat_order');
+        const rawHidden = localStorage.getItem('checkout_cat_hidden');
+        const savedOrder = rawOrder ? JSON.parse(rawOrder) : null;
+        const savedHidden = rawHidden ? JSON.parse(rawHidden) : [];
+        const mergedOrder = savedOrder
+          ? [...savedOrder.filter(id => allAvailableIds.includes(id)), ...allAvailableIds.filter(id => !savedOrder.includes(id))]
+          : allAvailableIds;
+        setCategoryOrder(mergedOrder);
+        setHiddenCategoryIds(savedHidden);
       } catch (err) {
         if (active) setError(getErrorMessage(err));
       } finally {
@@ -61,6 +76,14 @@ export default function CheckOutMode() {
     loadData();
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (categoryOrder.length > 0) localStorage.setItem('checkout_cat_order', JSON.stringify(categoryOrder));
+  }, [categoryOrder]);
+
+  useEffect(() => {
+    localStorage.setItem('checkout_cat_hidden', JSON.stringify(hiddenCategoryIds));
+  }, [hiddenCategoryIds]);
 
   const holderMap = useMemo(() => Object.fromEntries(users.map((u) => [u.id, u.name])), [users]);
   const cartItemIds = useMemo(() => new Set(cart.map((c) => c.unit.id)), [cart]);
@@ -109,6 +132,34 @@ export default function CheckOutMode() {
     setSelectedCategory(null);
     setSelectedItem(null);
     setItemUnits([]);
+  }
+
+  function moveCategoryUp(id) {
+    setCategoryOrder(prev => {
+      const idx = prev.indexOf(id);
+      if (idx <= 0) return prev;
+      const next = [...prev];
+      [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+      return next;
+    });
+  }
+
+  function moveCategoryDown(id) {
+    setCategoryOrder(prev => {
+      const idx = prev.indexOf(id);
+      if (idx < 0 || idx >= prev.length - 1) return prev;
+      const next = [...prev];
+      [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+      return next;
+    });
+  }
+
+  function hideCategory(id) {
+    setHiddenCategoryIds(prev => [...prev, id]);
+  }
+
+  function restoreCategory(id) {
+    setHiddenCategoryIds(prev => prev.filter(hid => hid !== id));
   }
 
   function addToCart(unit, quantity = 1) {
@@ -237,47 +288,150 @@ export default function CheckOutMode() {
           </div>
         </div>
       ) : gridPage === "categories" ? (
-        <div className={`panel${gridDir ? ` grid-panel--${gridDir}` : ""}`}>
-          <div className="panel-head">
+        <div className={`panel${gridDir ? ` grid-panel--${gridDir}` : ''}`}>
+          <div className='panel-head'>
             <h3>Browse by Category</h3>
-            <span style={{ color: "var(--color-muted)", fontSize: "13px" }}>{categories.length} categories</span>
-          </div>
-          <div className="browse-grid">
-            {categories.map((category) => {
-              const meta = CATEGORY_META[category.name] ?? DEFAULT_META;
-              const Icon = meta.Icon;
-              const count = availableItems.filter((item) => item.category_id === category.id).length;
-              return (
-                <button key={category.id} type="button" className="browse-card" onClick={() => {
-                  setSelectedCategory(category);
-                  setGridDir("forward");
-                  setGridPage("items");
-                }}>
-                  <span className="browse-card__icon" style={{ color: meta.color, background: meta.bg }}><Icon /></span>
-                  <span className="browse-card__label">{category.name}</span>
-                  <span className="browse-card__sub">{count} available</span>
-                  <div className="cat-card-overlay" style={{ background: meta.bg, color: meta.color, justifyContent: "center", alignItems: "center", textAlign: "center" }}>
-                    <div className="cat-card-overlay__title">{category.name}</div>
-                    {category.description && <div className="cat-card-overlay__desc">{category.description}</div>}
-                  </div>
-                </button>
-              );
-            })}
-            {allItems.some((item) => item.category_id === null) && (
-              <button type="button" className="browse-card" onClick={() => {
-                setSelectedCategory({ id: null, name: "Uncategorized" });
-                setGridDir("forward");
-                setGridPage("items");
-              }}>
-                <span className="browse-card__icon" style={{ color: DEFAULT_META.color, background: DEFAULT_META.bg }}><BoxIcon /></span>
-                <span className="browse-card__label">Uncategorized</span>
-                <span className="browse-card__sub">{availableItems.filter((item) => item.category_id === null).length} available</span>
-                <div className="cat-card-overlay" style={{ background: DEFAULT_META.bg, color: DEFAULT_META.color, justifyContent: "center", alignItems: "center", textAlign: "center" }}>
-                  <div className="cat-card-overlay__title">Uncategorized</div>
-                </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {!editMode && (
+                <span style={{ color: 'var(--color-muted)', fontSize: '13px' }}>
+                  {categories.length} categories
+                </span>
+              )}
+              <button
+                type='button'
+                className={`btn ${editMode ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ fontSize: '12px', padding: '4px 12px' }}
+                onClick={() => setEditMode(v => !v)}
+              >
+                {editMode ? 'Done' : 'Edit'}
               </button>
-            )}
+            </div>
           </div>
+
+          <div className='browse-grid'>
+            {categoryOrder
+              .filter(id => !hiddenCategoryIds.includes(id))
+              .map(id => {
+                const category = id === null
+                  ? { id: null, name: 'Uncategorized', description: null }
+                  : categories.find(c => c.id === id);
+                if (!category) return null;
+                if (id === null && !allItems.some(item => item.category_id === null)) return null;
+
+                const meta = CATEGORY_META[category.name] ?? DEFAULT_META;
+                const Icon = meta.Icon;
+                const count = availableItems.filter(item =>
+                  id === null ? item.category_id === null : item.category_id === id
+                ).length;
+                const visibleIds = categoryOrder.filter(i => !hiddenCategoryIds.includes(i));
+                const isFirst = visibleIds[0] === id;
+                const isLast = visibleIds.at(-1) === id;
+
+                if (editMode) {
+                  return (
+                    <div
+                      key={String(id)}
+                      style={{
+                        position: 'relative',
+                        borderRadius: 'var(--radius-md)',
+                        border: '2px dashed var(--color-border)',
+                        background: 'var(--color-surface)',
+                        padding: '12px 10px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '6px',
+                        minHeight: '100px',
+                      }}
+                    >
+                      <span
+                        className='browse-card__icon'
+                        style={{ color: meta.color, background: meta.bg, width: '36px', height: '36px', fontSize: '18px' }}
+                      >
+                        <Icon />
+                      </span>
+                      <span style={{ fontSize: '12px', fontWeight: 600, textAlign: 'center', color: 'var(--color-text)' }}>
+                        {category.name}
+                      </span>
+                      <span style={{ fontSize: '11px', color: 'var(--color-muted)' }}>{count} available</span>
+                      <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                        <button
+                          type='button'
+                          className='row-btn'
+                          style={{ fontSize: '14px', padding: '2px 7px', opacity: isFirst ? 0.3 : 1 }}
+                          disabled={isFirst}
+                          onClick={() => moveCategoryUp(id)}
+                          title='Move left'
+                        >↑</button>
+                        <button
+                          type='button'
+                          className='row-btn'
+                          style={{ fontSize: '14px', padding: '2px 7px', opacity: isLast ? 0.3 : 1 }}
+                          disabled={isLast}
+                          onClick={() => moveCategoryDown(id)}
+                          title='Move right'
+                        >↓</button>
+                        <button
+                          type='button'
+                          className='row-btn'
+                          style={{ fontSize: '14px', padding: '2px 7px', color: '#dc2626' }}
+                          onClick={() => hideCategory(id)}
+                          title='Hide'
+                        >×</button>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <button
+                    key={String(id)}
+                    type='button'
+                    className='browse-card'
+                    onClick={() => {
+                      setSelectedCategory(category);
+                      setGridDir('forward');
+                      setGridPage('items');
+                    }}
+                  >
+                    <span className='browse-card__icon' style={{ color: meta.color, background: meta.bg }}><Icon /></span>
+                    <span className='browse-card__label'>{category.name}</span>
+                    <span className='browse-card__sub'>{count} available</span>
+                    <div className='cat-card-overlay' style={{ background: meta.bg, color: meta.color, justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
+                      <div className='cat-card-overlay__title'>{category.name}</div>
+                      {category.description && <div className='cat-card-overlay__desc'>{category.description}</div>}
+                    </div>
+                  </button>
+                );
+              })}
+          </div>
+
+          {editMode && hiddenCategoryIds.length > 0 && (
+            <div style={{ padding: '12px 14px', borderTop: '1px solid var(--color-border-light)' }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-muted)', marginBottom: '8px' }}>
+                Hidden categories
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {hiddenCategoryIds.map(id => {
+                  const category = id === null
+                    ? { id: null, name: 'Uncategorized' }
+                    : categories.find(c => c.id === id);
+                  if (!category) return null;
+                  return (
+                    <button
+                      key={String(id)}
+                      type='button'
+                      className='btn btn-secondary'
+                      style={{ fontSize: '12px', padding: '4px 10px' }}
+                      onClick={() => restoreCategory(id)}
+                    >
+                      + {category.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            )}
         </div>
       ) : gridPage === "items" ? (
         <div className={`panel${gridDir ? ` grid-panel--${gridDir}` : ""}`}>

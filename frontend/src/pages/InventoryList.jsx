@@ -9,6 +9,7 @@ import CheckinModal from "../components/CheckinModal.jsx";
 import CheckoutModal from "../components/CheckoutModal.jsx";
 import ItemTable from "../components/ItemTable.jsx";
 import { useAuth } from "../context/AuthContext";
+import { getCategoryMeta } from "../utils/categoryMeta.jsx";
 
 export default function InventoryList() {
   const navigate = useNavigate();
@@ -26,6 +27,9 @@ export default function InventoryList() {
   const [checkoutItem, setCheckoutItem] = useState(null);
   const [checkinItem, setCheckinItem] = useState(null);
   const [viewMode, setViewMode] = useState("list"); // 'grid' | 'list'
+  const [categoryFilter, setCategoryFilter] = useState(null);
+  const [locationFilter, setLocationFilter] = useState(null);
+  const [statusFilter,   setStatusFilter]   = useState("");
 
   async function load() {
     setLoading(true);
@@ -72,11 +76,21 @@ export default function InventoryList() {
     const q = query.trim().toLowerCase();
     return items.filter((item) => {
       if (conditionFilter && item.condition !== conditionFilter) return false;
+      if (categoryFilter !== null && item.category_id !== categoryFilter) return false;
+      if (locationFilter !== null && item.location_id !== locationFilter) return false;
+      if (statusFilter === "available" && item.available_quantity !== item.quantity) return false;
+      if (statusFilter === "partial" && !(item.available_quantity > 0 && item.available_quantity < item.quantity)) return false;
+      if (statusFilter === "out" && item.available_quantity !== 0) return false;
       if (!q) return true;
       return [item.asset_code, item.name, item.serial_number, item.condition]
         .filter(Boolean).some((v) => v.toLowerCase().includes(q));
     });
-  }, [items, query, conditionFilter]);
+  }, [items, query, conditionFilter, categoryFilter, locationFilter, statusFilter]);
+
+  const statTotalModels = items.length;
+  const statTotalUnits  = items.reduce((s, i) => s + i.quantity, 0);
+  const statAvailable   = items.reduce((s, i) => s + i.available_quantity, 0);
+  const statCheckedOut  = statTotalUnits - statAvailable;
 
   async function checkout(payload) {
     try {
@@ -106,23 +120,8 @@ export default function InventoryList() {
           <span className="topbar-title">Inventory</span>
         </div>
         <div className="topbar-actions">
-          <button
-            type="button"
-            className={`btn ${viewMode === "list" ? "btn-primary" : "btn-secondary"}`}
-            onClick={() => setViewMode("list")}
-          >
-            List
-          </button>
-          <button
-            type="button"
-            className={`btn ${viewMode === "grid" ? "btn-primary" : "btn-secondary"}`}
-            onClick={() => setViewMode("grid")}
-          >
-            Grid
-          </button>
-          {!isStudent && (
-            <Link className="btn btn-primary" to="/inventory/new">Add Item</Link>
-          )}
+          <button type="button" className={`btn ${viewMode === "list" ? "btn-primary" : "btn-secondary"}`} onClick={() => setViewMode("list")}>List</button>
+          <button type="button" className={`btn ${viewMode === "grid" ? "btn-primary" : "btn-secondary"}`} onClick={() => setViewMode("grid")}>Grid</button>
         </div>
       </div>
 
@@ -134,16 +133,137 @@ export default function InventoryList() {
             </div>
           )}
           {error && <div className="alert">{error}</div>}
-          {viewMode === "list" ? (
-            <div className="table-wrap">
-              <div className="table-toolbar">
+
+          {/* Stats bar */}
+          <div className="metric-grid">
+            <div className="metric-card">
+              <div className="metric-label">Total Models</div>
+              <div className="metric-value metric-value--blue">{statTotalModels}</div>
+              <div className="metric-footer">Unique asset types</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-label">Total Units</div>
+              <div className="metric-value">{statTotalUnits}</div>
+              <div className="metric-footer">Physical items</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-label">Available</div>
+              <div className="metric-value metric-value--green">{statAvailable}</div>
+              <div className="metric-footer">
+                <span className="metric-dot" style={{ background: "#22c55e" }} />
+                Ready to check out
+              </div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-label">Checked Out</div>
+              <div className={`metric-value ${statCheckedOut > 0 ? "metric-value--red" : ""}`}>{statCheckedOut}</div>
+              <div className="metric-footer">{statCheckedOut === 0 ? "No active loans" : "Active loans"}</div>
+            </div>
+          </div>
+
+          {/* Two-column layout */}
+          <div className="inv-layout">
+
+            {/* Left filter panel */}
+            <aside className="inv-filter-panel">
+
+              {/* Search */}
+              <div className="inv-filter-section">
                 <input
                   className="table-search"
+                  style={{ width: "100%" }}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search asset, name, serial, condition…"
+                  placeholder="Search asset, name, serial…"
                 />
-                <select className="table-filter" value={conditionFilter} onChange={(e) => setConditionFilter(e.target.value)}>
+              </div>
+
+              {/* Status */}
+              <div className="inv-filter-section">
+                <div className="inv-filter-title">Status</div>
+                {[
+                  { key: "",          label: "All",       count: items.length },
+                  { key: "available", label: "Available", count: items.filter(i => i.available_quantity === i.quantity).length },
+                  { key: "partial",   label: "Partial",   count: items.filter(i => i.available_quantity > 0 && i.available_quantity < i.quantity).length },
+                  { key: "out",       label: "Out",       count: items.filter(i => i.available_quantity === 0).length },
+                ].map(({ key, label, count }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className={`inv-filter-btn ${statusFilter === key ? "inv-filter-btn--active" : ""}`}
+                    onClick={() => setStatusFilter(key)}
+                  >
+                    {label}
+                    <span className="inv-filter-count">{count}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Categories */}
+              <div className="inv-filter-section">
+                <div className="inv-filter-title">Category</div>
+                <button
+                  type="button"
+                  className={`inv-filter-btn ${categoryFilter === null ? "inv-filter-btn--active" : ""}`}
+                  onClick={() => setCategoryFilter(null)}
+                >
+                  All
+                  <span className="inv-filter-count">{items.length}</span>
+                </button>
+                {categories.map((cat) => {
+                  const meta = getCategoryMeta(cat);
+                  const count = items.filter(i => i.category_id === cat.id).length;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      className={`inv-filter-btn ${categoryFilter === cat.id ? "inv-filter-btn--active" : ""}`}
+                      onClick={() => setCategoryFilter(categoryFilter === cat.id ? null : cat.id)}
+                    >
+                      <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: meta.color, flexShrink: 0 }} />
+                      {cat.name}
+                      <span className="inv-filter-count">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Locations */}
+              <div className="inv-filter-section">
+                <div className="inv-filter-title">Location</div>
+                <button
+                  type="button"
+                  className={`inv-filter-btn ${locationFilter === null ? "inv-filter-btn--active" : ""}`}
+                  onClick={() => setLocationFilter(null)}
+                >
+                  All
+                  <span className="inv-filter-count">{items.length}</span>
+                </button>
+                {locations.map((loc) => {
+                  const count = items.filter(i => i.location_id === loc.id).length;
+                  return (
+                    <button
+                      key={loc.id}
+                      type="button"
+                      className={`inv-filter-btn ${locationFilter === loc.id ? "inv-filter-btn--active" : ""}`}
+                      onClick={() => setLocationFilter(locationFilter === loc.id ? null : loc.id)}
+                    >
+                      {loc.name}
+                      <span className="inv-filter-count">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Condition */}
+              <div className="inv-filter-section">
+                <div className="inv-filter-title">Condition</div>
+                <select
+                  className="table-filter"
+                  style={{ width: "100%" }}
+                  value={conditionFilter}
+                  onChange={(e) => setConditionFilter(e.target.value)}
+                >
                   <option value="">All conditions</option>
                   <option value="excellent">Excellent</option>
                   <option value="good">Good</option>
@@ -153,50 +273,43 @@ export default function InventoryList() {
                   <option value="damaged">Damaged</option>
                 </select>
               </div>
-              {loading ? (
-                <div className="loading" style={{ borderRadius: 0, border: "none", borderTop: "1px solid var(--color-border-light)" }}>
-                  Loading inventory...
+
+              {/* Quick actions — non-students only */}
+              {!isStudent && (
+                <div className="inv-filter-section">
+                  <Link className="btn btn-primary" to="/inventory/new" style={{ width: "100%", marginBottom: "6px", display: "block", textAlign: "center" }}>
+                    + Add Item
+                  </Link>
+                  <Link className="btn btn-secondary" to="/categories/new" style={{ width: "100%", display: "block", textAlign: "center" }}>
+                    + Add Category
+                  </Link>
                 </div>
-              ) : (
-                <ItemTable
-                  items={filteredItems}
-                  categories={categories}
-                  locations={locations}
-                  onCheckout={setCheckoutItem}
-                  onCheckin={setCheckinItem}
-                />
               )}
-            </div>
-          ) : (
-            <>
-              <div className="panel">
-                <div className="panel-body" style={{ display: "flex", gap: "10px" }}>
-                  <input
-                    className="form-input"
-                    style={{ flex: 1 }}
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search asset, name, serial, condition…"
-                  />
-                  <select
-                    className="form-select"
-                    value={conditionFilter}
-                    onChange={(e) => setConditionFilter(e.target.value)}
-                  >
-                    <option value="">All conditions</option>
-                    <option value="excellent">Excellent</option>
-                    <option value="good">Good</option>
-                    <option value="fair">Fair</option>
-                    <option value="poor">Poor</option>
-                    <option value="needs_inspection">Needs Inspection</option>
-                    <option value="damaged">Damaged</option>
-                  </select>
-                </div>
-              </div>
+
+            </aside>
+
+            {/* Right content */}
+            <main>
               {loading ? (
-                <div className="loading">Loading inventory...</div>
+                <div className="loading">Loading inventory…</div>
+              ) : viewMode === "list" ? (
+                <div className="table-wrap">
+                  <div className="table-toolbar">
+                    <span style={{ fontSize: 12, color: "var(--color-muted)", fontWeight: 500 }}>
+                      {filteredItems.length} item{filteredItems.length !== 1 ? "s" : ""}
+                      {filteredItems.length !== items.length ? ` of ${items.length}` : ""}
+                    </span>
+                  </div>
+                  <ItemTable
+                    items={filteredItems}
+                    categories={categories}
+                    locations={locations}
+                    onCheckout={setCheckoutItem}
+                    onCheckin={setCheckinItem}
+                  />
+                </div>
               ) : filteredItems.length === 0 ? (
-                <div className="empty-state">No items match your search.</div>
+                <div className="empty-state">No items match your filters.</div>
               ) : (
                 <div className="inv-grid">
                   {filteredItems.map((item) => {
@@ -206,36 +319,32 @@ export default function InventoryList() {
                     const fullyOut = item.available_quantity === 0;
                     const partial = !fullyOut && item.available_quantity < item.quantity;
                     const statusKey = fullyOut ? "out" : partial ? "partial" : "available";
-                    const chipLabel = fullyOut ? 'Out' : partial ? 'Partial' : 'Available';
+                    const chipLabel = fullyOut ? "Out" : partial ? "Partial" : "Available";
                     return (
-                      <div
-                        key={item.id}
-                        className='inv-card'
-                        onClick={() => navigate(`/items/${item.id}`)}
-                      >
-                        <div className='inv-card__header'>
-                          <span className='inv-card__code'>{item.asset_code}</span>
+                      <div key={item.id} className="inv-card" onClick={() => navigate(`/items/${item.id}`)}>
+                        <div className="inv-card__header">
+                          <span className="inv-card__code">{item.asset_code}</span>
                           <span className={`inv-card__chip inv-card__chip--${statusKey}`}>{chipLabel}</span>
                         </div>
-                        <div className='inv-card__name'>{item.name}</div>
-                        <div className='inv-card__meta'>
+                        <div className="inv-card__name">{item.name}</div>
+                        <div className="inv-card__meta">
                           <span>{categoryName}</span>
-                          <span className='inv-card__sep'> · </span>
-                          <span>{item.location_name || '—'}</span>
+                          <span className="inv-card__sep"> · </span>
+                          <span>{item.location_name || "—"}</span>
                         </div>
-                        <div className='inv-card__footer'>
-                          <span className='inv-card__stats'>
+                        <div className="inv-card__footer">
+                          <span className="inv-card__stats">
                             {item.available_quantity}/{item.quantity}
-                            <span className='inv-card__sep'> · </span>
-                            {item.condition.replace(/_/g, ' ')}
+                            <span className="inv-card__sep"> · </span>
+                            {item.condition.replace(/_/g, " ")}
                           </span>
                           {!isStudent && (
-                            <div className='inv-card__actions'>
+                            <div className="inv-card__actions">
                               {canCheckout && (
-                                <button className='row-btn row-btn--primary' onClick={(e) => { e.stopPropagation(); setCheckoutItem(item); }}>Out</button>
+                                <button className="row-btn row-btn--primary" onClick={(e) => { e.stopPropagation(); setCheckoutItem(item); }}>Out</button>
                               )}
                               {canCheckin && (
-                                <button className='row-btn' onClick={(e) => { e.stopPropagation(); setCheckinItem(item); }}>In</button>
+                                <button className="row-btn" onClick={(e) => { e.stopPropagation(); setCheckinItem(item); }}>In</button>
                               )}
                             </div>
                           )}
@@ -245,8 +354,9 @@ export default function InventoryList() {
                   })}
                 </div>
               )}
-            </>
-          )}
+            </main>
+
+          </div>
         </div>
       </div>
 
