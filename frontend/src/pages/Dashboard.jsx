@@ -114,7 +114,7 @@ export default function Dashboard() {
                   </span>
                 </div>
                 <div className="panel-body" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-                  <div className="browse-grid" style={{ flex: 1, minHeight: 0, gridTemplateColumns: "repeat(3, 1fr)", gridAutoRows: "minmax(min-content, 1fr)", padding: "8px", gap: "10px" }}>
+                  <div className="browse-grid" style={{ flex: 1, minHeight: 0, overflowY: "auto", gridTemplateColumns: "repeat(3, 1fr)", gridAutoRows: "minmax(min-content, 1fr)", padding: "8px", gap: "10px" }}>
                     {catCounts.map((c) => {
                       const meta = CATEGORY_META[c.name] ?? DEFAULT_META;
                       const Icon = meta.Icon;
