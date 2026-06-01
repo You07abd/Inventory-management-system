@@ -4,7 +4,7 @@ import { itemsApi } from "../../api/items";
 import { categoriesApi } from "../../api/categories";
 import { usersApi } from "../../api/users";
 import { unitsApi } from "../../api/units";
-import { CATEGORY_META, DEFAULT_META, BoxIcon } from "../../utils/categoryMeta.jsx";
+import { getCategoryMeta, UNCATEGORIZED_CATEGORY } from "../../utils/categoryMeta.jsx";
 import DatePicker from "../../components/DatePicker";
 import LiveScanMode from "./LiveScanMode";
 
@@ -294,7 +294,7 @@ export default function CheckOutMode() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               {!editMode && (
                 <span style={{ color: 'var(--color-muted)', fontSize: '13px' }}>
-                  {categories.length} categories
+                  {categoryOrder.filter((id) => !hiddenCategoryIds.includes(id)).length} categories
                 </span>
               )}
               <button
@@ -313,12 +313,12 @@ export default function CheckOutMode() {
               .filter(id => !hiddenCategoryIds.includes(id))
               .map(id => {
                 const category = id === null
-                  ? { id: null, name: 'Uncategorized', description: null }
+                  ? UNCATEGORIZED_CATEGORY
                   : categories.find(c => c.id === id);
                 if (!category) return null;
                 if (id === null && !allItems.some(item => item.category_id === null)) return null;
 
-                const meta = CATEGORY_META[category.name] ?? DEFAULT_META;
+                const meta = getCategoryMeta(category);
                 const Icon = meta.Icon;
                 const count = availableItems.filter(item =>
                   id === null ? item.category_id === null : item.category_id === id
@@ -414,7 +414,7 @@ export default function CheckOutMode() {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                 {hiddenCategoryIds.map(id => {
                   const category = id === null
-                    ? { id: null, name: 'Uncategorized' }
+                    ? UNCATEGORIZED_CATEGORY
                     : categories.find(c => c.id === id);
                   if (!category) return null;
                   return (

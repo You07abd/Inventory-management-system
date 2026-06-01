@@ -11,8 +11,9 @@ import CheckinModal from "../components/CheckinModal.jsx";
 import CheckoutModal from "../components/CheckoutModal.jsx";
 import QRCodeDisplay from "../components/QRCodeDisplay.jsx";
 
-function findName(collection, id) {
-  return collection.find((entry) => entry.id === id)?.name || "Unassigned";
+function findName(collection, id, fallback = "Unassigned") {
+  if (id == null) return fallback;
+  return collection.find((entry) => entry.id === id)?.name || fallback;
 }
 
 function conditionBadgeClass(condition) {
@@ -273,7 +274,7 @@ export default function ItemDetail() {
                     </div>
                     <div className="detail-field">
                       <div className="detail-field-label">Category</div>
-                      <div className="detail-field-value">{findName(categories, item.category_id)}</div>
+                      <div className="detail-field-value">{findName(categories, item.category_id, "Uncategorized")}</div>
                     </div>
                     <div className="detail-field">
                       <div className="detail-field-label">Location</div>

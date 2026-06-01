@@ -4,7 +4,7 @@ import { itemsApi } from "../../api/items";
 import { categoriesApi } from "../../api/categories";
 import { usersApi } from "../../api/users";
 import { unitsApi } from "../../api/units";
-import { CATEGORY_META, DEFAULT_META } from "../../utils/categoryMeta.jsx";
+import { getCategoryMeta, UNCATEGORIZED_CATEGORY } from "../../utils/categoryMeta.jsx";
 
 const CONDITIONS = [
   { value: "excellent", label: "Excellent" },
@@ -14,6 +14,7 @@ const CONDITIONS = [
   { value: "needs_inspection", label: "Needs Inspection" },
   { value: "damaged", label: "Damaged" },
 ];
+const UNCATEGORIZED_META = getCategoryMeta(UNCATEGORIZED_CATEGORY);
 
 export default function CheckInMode() {
   const [allItems, setAllItems] = useState([]);
@@ -80,14 +81,14 @@ export default function CheckInMode() {
   }, [checkedOutUnits, query, allItems]);
   const cartItemIds = useMemo(() => new Set(returnCart.map((r) => r.unit.id)), [returnCart]);
   const catsWithCheckedOut = useMemo(
-    () => new Set(checkedOutUnits.map((u) => allItems.find((i) => i.id === u.item_id)?.category_id ?? 0)),
+    () => new Set(checkedOutUnits.map((u) => allItems.find((i) => i.id === u.item_id)?.category_id ?? null)),
     [checkedOutUnits, allItems]
   );
   const checkedOutItemsForCat = useMemo(() => {
     if (!ciSelectedCat) return [];
     const ids = new Set(
       checkedOutUnits
-        .filter((u) => (allItems.find((i) => i.id === u.item_id)?.category_id ?? 0) === ciSelectedCat.id)
+        .filter((u) => (allItems.find((i) => i.id === u.item_id)?.category_id ?? null) === ciSelectedCat.id)
         .map((u) => u.item_id)
     );
     return allItems.filter((i) => ids.has(i.id));
@@ -224,7 +225,7 @@ export default function CheckInMode() {
           </div>
           <div className="browse-grid">
             {categories.filter((cat) => catsWithCheckedOut.has(cat.id)).map((cat) => {
-              const meta = CATEGORY_META[cat.name] ?? DEFAULT_META;
+              const meta = getCategoryMeta(cat);
               const Icon = meta.Icon;
               const count = checkedOutUnits.filter((u) => itemById(u.item_id)?.category_id === cat.id).length;
               return (
@@ -243,14 +244,14 @@ export default function CheckInMode() {
                 </button>
               );
             })}
-            {catsWithCheckedOut.has(0) && (
+            {catsWithCheckedOut.has(null) && (
               <button type="button" className="browse-card" onClick={() => {
-                setCiSelectedCat({ id: 0, name: "Uncategorized" });
+                setCiSelectedCat(UNCATEGORIZED_CATEGORY);
                 setCiGridDir("forward");
                 setCiGridPage("items");
               }}>
-                <span className="browse-card__icon" style={{ color: DEFAULT_META.color, background: DEFAULT_META.bg }}>
-                  <DEFAULT_META.Icon />
+                <span className="browse-card__icon" style={{ color: UNCATEGORIZED_META.color, background: UNCATEGORIZED_META.bg }}>
+                  <UNCATEGORIZED_META.Icon />
                 </span>
                 <span className="browse-card__label">Uncategorized</span>
                 <span className="browse-card__sub">{checkedOutUnits.filter((u) => itemById(u.item_id)?.category_id == null).length} units out</span>

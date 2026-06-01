@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
-function nameById(collection, id) {
-  return collection.find((e) => e.id === id)?.name || "—";
+function nameById(collection, id, fallback = "—") {
+  if (id == null) return fallback;
+  return collection.find((e) => e.id === id)?.name || fallback;
 }
 
 const COLUMNS = [
@@ -38,7 +39,7 @@ export default function ItemTable({ items, categories = [], locations = [], onCh
   }
 
   function getValue(item, key) {
-    if (key === "category") return nameById(categories, item.category_id);
+    if (key === "category") return nameById(categories, item.category_id, "Uncategorized");
     if (key === "location") return nameById(locations, item.location_id);
     if (key === "available") return item.available_quantity;
     if (key === "status") return item.available_quantity < item.quantity ? "checked out" : "available";
@@ -88,7 +89,7 @@ export default function ItemTable({ items, categories = [], locations = [], onCh
                 <div className="item-name">{item.name}</div>
                 {item.serial_number && <div className="item-sub">SN: {item.serial_number}</div>}
               </td>
-              <td>{nameById(categories, item.category_id)}</td>
+              <td>{nameById(categories, item.category_id, "Uncategorized")}</td>
               <td>{nameById(locations, item.location_id)}</td>
               <td style={{ fontVariantNumeric: "tabular-nums" }}>
                 {item.available_quantity} / {item.quantity}

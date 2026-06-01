@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.category import Category
+from app.models.item import Item
 from app.schemas.category import Category as CategorySchema
 from app.schemas.category import CategoryCreate, CategoryUpdate
 
@@ -58,6 +59,10 @@ def delete_category(category_id: int, db: Session = Depends(get_db)):
     category = db.get(Category, category_id)
     if not category:
         raise HTTPException(status_code=404, detail="Category not found.")
+    db.query(Item).filter(Item.category_id == category_id).update(
+        {Item.category_id: None},
+        synchronize_session=False,
+    )
     db.delete(category)
     db.commit()
     return None

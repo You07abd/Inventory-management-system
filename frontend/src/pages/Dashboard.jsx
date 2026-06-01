@@ -4,7 +4,7 @@ import { categoriesApi } from "../api/categories";
 import { getErrorMessage } from "../api/client";
 import { itemsApi } from "../api/items";
 import { transactionsApi } from "../api/transactions";
-import { CATEGORY_META, DEFAULT_META } from "../utils/categoryMeta.jsx";
+import { getCategoryMeta, UNCATEGORIZED_CATEGORY } from "../utils/categoryMeta.jsx";
 
 export default function Dashboard() {
   const [items, setItems] = useState([]);
@@ -40,12 +40,23 @@ export default function Dashboard() {
   const availableUnits = items.reduce((s, i) => s + i.available_quantity, 0);
   const checkedOut = totalUnits - availableUnits;
 
-  const catCounts = categories.map((c) => ({
+  const uncategorizedCount = items.filter((i) => i.category_id == null).length;
+  const catCounts = [
+    ...categories.map((c) => ({
     id: c.id,
     name: c.name,
     description: c.description,
     count: items.filter((i) => i.category_id === c.id).length,
-  })).filter((c) => c.count > 0);
+    category: c,
+  })),
+    ...(uncategorizedCount > 0 ? [{
+      id: UNCATEGORIZED_CATEGORY.id,
+      name: UNCATEGORIZED_CATEGORY.name,
+      description: UNCATEGORIZED_CATEGORY.description,
+      count: uncategorizedCount,
+      category: UNCATEGORIZED_CATEGORY,
+    }] : []),
+  ].filter((c) => c.count > 0);
   const maxCount = Math.max(...catCounts.map((c) => c.count), 1);
 
   return (
@@ -98,7 +109,7 @@ export default function Dashboard() {
               <div className="metric-card" style={{ padding: "14px 18px" }}>
                 <div className="metric-label">Models</div>
                 <div className="metric-value" style={{ fontSize: "26px" }}>{items.length}</div>
-                <div className="metric-footer">Across {categories.length} categories</div>
+                <div className="metric-footer">Across {catCounts.length} categories</div>
               </div>
             </div>
 
@@ -116,7 +127,7 @@ export default function Dashboard() {
                 <div className="panel-body" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
                   <div className="browse-grid" style={{ flex: 1, minHeight: 0, overflowY: "auto", gridTemplateColumns: "repeat(3, 1fr)", gridAutoRows: "minmax(min-content, 1fr)", padding: "8px", gap: "10px" }}>
                     {catCounts.map((c) => {
-                      const meta = CATEGORY_META[c.name] ?? DEFAULT_META;
+                      const meta = getCategoryMeta(c.category);
                       const Icon = meta.Icon;
                       return (
                         <div

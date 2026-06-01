@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { categoriesApi } from "../api/categories";
 import { getErrorMessage } from "../api/client";
 import { itemsApi } from "../api/items";
@@ -9,9 +9,19 @@ import CheckinModal from "../components/CheckinModal.jsx";
 import CheckoutModal from "../components/CheckoutModal.jsx";
 import ItemTable from "../components/ItemTable.jsx";
 import { useAuth } from "../context/AuthContext";
-import { getCategoryMeta } from "../utils/categoryMeta.jsx";
+import { getCategoryMeta, UNCATEGORIZED_CATEGORY } from "../utils/categoryMeta.jsx";
 
-export default function InventoryList() {
+const emptyItemForm = {
+  name: "",
+  description: "",
+  serial_number: "",
+  quantity: 1,
+  condition: "good",
+  category_id: "",
+  location_id: "",
+};
+
+export default function InventoryList({ initialMode = "browse" }) {
   const navigate = useNavigate();
   const { role } = useAuth();
   const isStudent = role === "student";
@@ -23,10 +33,14 @@ export default function InventoryList() {
   const [query, setQuery] = useState("");
   const [conditionFilter, setConditionFilter] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
+  const [savingItem, setSavingItem] = useState(false);
   const [checkoutItem, setCheckoutItem] = useState(null);
   const [checkinItem, setCheckinItem] = useState(null);
   const [viewMode, setViewMode] = useState("list"); // 'grid' | 'list'
+  const [pageMode, setPageMode] = useState(initialMode === "create" ? "create" : "browse");
+  const [itemForm, setItemForm] = useState(emptyItemForm);
   const [categoryFilter, setCategoryFilter] = useState(null);
   const [locationFilter, setLocationFilter] = useState(null);
   const [statusFilter,   setStatusFilter]   = useState("");
@@ -72,11 +86,16 @@ export default function InventoryList() {
     return () => { active = false; };
   }, []);
 
+  useEffect(() => {
+    setPageMode(initialMode === "create" ? "create" : "browse");
+  }, [initialMode]);
+
   const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase();
     return items.filter((item) => {
       if (conditionFilter && item.condition !== conditionFilter) return false;
-      if (categoryFilter !== null && item.category_id !== categoryFilter) return false;
+      if (categoryFilter === "uncategorized" && item.category_id != null) return false;
+      if (categoryFilter !== null && categoryFilter !== "uncategorized" && item.category_id !== categoryFilter) return false;
       if (locationFilter !== null && item.location_id !== locationFilter) return false;
       if (statusFilter === "available" && item.available_quantity !== item.quantity) return false;
       if (statusFilter === "partial" && !(item.available_quantity > 0 && item.available_quantity < item.quantity)) return false;
@@ -91,6 +110,8 @@ export default function InventoryList() {
   const statTotalUnits  = items.reduce((s, i) => s + i.quantity, 0);
   const statAvailable   = items.reduce((s, i) => s + i.available_quantity, 0);
   const statCheckedOut  = statTotalUnits - statAvailable;
+  const uncategorizedCount = items.filter((item) => item.category_id == null).length;
+  const uncategorizedMeta = getCategoryMeta(UNCATEGORIZED_CATEGORY);
 
   async function checkout(payload) {
     try {
@@ -112,16 +133,67 @@ export default function InventoryList() {
     }
   }
 
+  function updateItemForm(field, value) {
+    setItemForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function openCreateItem() {
+    setItemForm(emptyItemForm);
+    setError("");
+    setNotice("");
+    setPageMode("create");
+  }
+
+  function closeCreateItem() {
+    setItemForm(emptyItemForm);
+    setPageMode("browse");
+    navigate("/inventory", { replace: true });
+  }
+
+  async function createItem(event) {
+    event.preventDefault();
+    setSavingItem(true);
+    setError("");
+    setNotice("");
+    try {
+      await itemsApi.create({
+        name: itemForm.name,
+        description: itemForm.description || null,
+        serial_number: itemForm.serial_number || null,
+        quantity: Number(itemForm.quantity),
+        condition: itemForm.condition,
+        category_id: itemForm.category_id ? Number(itemForm.category_id) : null,
+        location_id: itemForm.location_id ? Number(itemForm.location_id) : null,
+      });
+      setItemForm(emptyItemForm);
+      setPageMode("browse");
+      setNotice("Item created.");
+      navigate("/inventory", { replace: true });
+      await load();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setSavingItem(false);
+    }
+  }
+
   return (
     <>
       <div className="topbar">
         <div className="topbar-left">
           <span className="topbar-breadcrumb">Inventory</span>
-          <span className="topbar-title">Inventory</span>
+          <span className="topbar-title">{pageMode === "create" ? "Add Item" : "Inventory"}</span>
         </div>
         <div className="topbar-actions">
-          <button type="button" className={`btn ${viewMode === "list" ? "btn-primary" : "btn-secondary"}`} onClick={() => setViewMode("list")}>List</button>
-          <button type="button" className={`btn ${viewMode === "grid" ? "btn-primary" : "btn-secondary"}`} onClick={() => setViewMode("grid")}>Grid</button>
+          {pageMode === "create" ? (
+            <button type="button" className="btn btn-secondary" onClick={closeCreateItem}>Back to Inventory</button>
+          ) : (
+            <>
+              {!isStudent && <button type="button" className="btn btn-primary" onClick={openCreateItem}>Add Item</button>}
+              <button type="button" className={`btn ${viewMode === "list" ? "btn-primary" : "btn-secondary"}`} onClick={() => setViewMode("list")}>List</button>
+              <button type="button" className={`btn ${viewMode === "grid" ? "btn-primary" : "btn-secondary"}`} onClick={() => setViewMode("grid")}>Grid</button>
+            </>
+          )}
         </div>
       </div>
 
@@ -133,9 +205,66 @@ export default function InventoryList() {
             </div>
           )}
           {error && <div className="alert">{error}</div>}
+          {notice && <div className="notice">{notice}</div>}
 
-          {/* Stats bar */}
-          <div className="metric-grid">
+          {pageMode === "create" && !isStudent ? (
+            <form className="form-card" onSubmit={createItem}>
+              <div className="form-grid">
+                <div className="form-group wide">
+                  <label className="form-label">Name</label>
+                  <input className="form-input" value={itemForm.name} onChange={(e) => updateItemForm("name", e.target.value)} required />
+                </div>
+                <div className="form-group wide">
+                  <label className="form-label">Description</label>
+                  <textarea className="form-textarea" value={itemForm.description} onChange={(e) => updateItemForm("description", e.target.value)} rows="3" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Serial Number</label>
+                  <input className="form-input" value={itemForm.serial_number} onChange={(e) => updateItemForm("serial_number", e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Quantity</label>
+                  <input className="form-input" type="number" min="1" value={itemForm.quantity} onChange={(e) => updateItemForm("quantity", e.target.value)} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Condition</label>
+                  <select className="form-select" value={itemForm.condition} onChange={(e) => updateItemForm("condition", e.target.value)}>
+                    <option value="excellent">Excellent</option>
+                    <option value="good">Good</option>
+                    <option value="fair">Fair</option>
+                    <option value="poor">Poor</option>
+                    <option value="needs_inspection">Needs Inspection</option>
+                    <option value="damaged">Damaged</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Category</label>
+                  <select className="form-select" value={itemForm.category_id} onChange={(e) => updateItemForm("category_id", e.target.value)}>
+                    <option value="">Uncategorized</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>{category.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Location</label>
+                  <select className="form-select" value={itemForm.location_id} onChange={(e) => updateItemForm("location_id", e.target.value)}>
+                    <option value="">Unassigned</option>
+                    {locations.map((location) => (
+                      <option key={location.id} value={location.id}>{location.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="form-actions">
+                <button type="button" className="btn btn-secondary" onClick={closeCreateItem}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={savingItem}>{savingItem ? "Saving..." : "Create Item"}</button>
+              </div>
+            </form>
+          ) : (
+          <>
+            {/* Stats bar */}
+            <div className="metric-grid">
             <div className="metric-card">
               <div className="metric-label">Total Models</div>
               <div className="metric-value metric-value--blue">{statTotalModels}</div>
@@ -210,6 +339,17 @@ export default function InventoryList() {
                   All
                   <span className="inv-filter-count">{items.length}</span>
                 </button>
+                {uncategorizedCount > 0 && (
+                  <button
+                    type="button"
+                    className={`inv-filter-btn ${categoryFilter === "uncategorized" ? "inv-filter-btn--active" : ""}`}
+                    onClick={() => setCategoryFilter(categoryFilter === "uncategorized" ? null : "uncategorized")}
+                  >
+                    <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: uncategorizedMeta.color, flexShrink: 0 }} />
+                    Uncategorized
+                    <span className="inv-filter-count">{uncategorizedCount}</span>
+                  </button>
+                )}
                 {categories.map((cat) => {
                   const meta = getCategoryMeta(cat);
                   const count = items.filter(i => i.category_id === cat.id).length;
@@ -277,12 +417,15 @@ export default function InventoryList() {
               {/* Quick actions — non-students only */}
               {!isStudent && (
                 <div className="inv-filter-section">
-                  <Link className="btn btn-primary" to="/inventory/new" style={{ width: "100%", marginBottom: "6px", display: "block", textAlign: "center" }}>
+                  <button type="button" className="btn btn-primary" onClick={openCreateItem} style={{ width: "100%", marginBottom: "6px", display: "block", textAlign: "center" }}>
                     + Add Item
-                  </Link>
-                  <Link className="btn btn-secondary" to="/categories/new" style={{ width: "100%", display: "block", textAlign: "center" }}>
+                  </button>
+                  <button type="button" className="btn btn-secondary" onClick={() => navigate("/categories/new")} style={{ width: "100%", display: "block", textAlign: "center" }}>
                     + Add Category
-                  </Link>
+                  </button>
+                  <button type="button" className="btn btn-secondary" onClick={() => navigate("/categories")} style={{ width: "100%", display: "block", textAlign: "center", marginTop: "6px" }}>
+                    Manage Categories
+                  </button>
                 </div>
               )}
 
@@ -313,7 +456,7 @@ export default function InventoryList() {
               ) : (
                 <div className="inv-grid">
                   {filteredItems.map((item) => {
-                    const categoryName = categories.find((c) => c.id === item.category_id)?.name ?? "—";
+                    const categoryName = item.category_id == null ? "Uncategorized" : categories.find((c) => c.id === item.category_id)?.name ?? "—";
                     const canCheckout = item.available_quantity > 0 && item.condition !== "damaged";
                     const canCheckin = item.available_quantity < item.quantity;
                     const fullyOut = item.available_quantity === 0;
@@ -357,6 +500,8 @@ export default function InventoryList() {
             </main>
 
           </div>
+          </>
+          )}
         </div>
       </div>
 
