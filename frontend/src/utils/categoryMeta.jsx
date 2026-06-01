@@ -371,6 +371,16 @@ export const ICON_MAP = {
   server: ServerIcon,
 };
 
+function hexToLightBg(hex) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const lr = Math.round(r + (255 - r) * 0.85);
+  const lg = Math.round(g + (255 - g) * 0.85);
+  const lb = Math.round(b + (255 - b) * 0.85);
+  return `rgb(${lr}, ${lg}, ${lb})`;
+}
+
 export function getCategoryMeta(category) {
   const fallback = CATEGORY_META[category?.name] ?? DEFAULT_META;
   const Icon = ICON_MAP[category?.icon] ?? fallback.Icon;
@@ -379,7 +389,7 @@ export function getCategoryMeta(category) {
   return {
     ...fallback,
     color,
-    bg: category?.color ? `${color}1a` : fallback.bg,
+    bg: category?.color ? hexToLightBg(color) : fallback.bg,
     Icon,
   };
 }

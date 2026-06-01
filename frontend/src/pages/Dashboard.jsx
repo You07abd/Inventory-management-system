@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { categoriesApi } from "../api/categories";
 import { getErrorMessage } from "../api/client";
 import { itemsApi } from "../api/items";
@@ -56,8 +56,9 @@ export default function Dashboard() {
       count: uncategorizedCount,
       category: UNCATEGORIZED_CATEGORY,
     }] : []),
-  ].filter((c) => c.count > 0);
+  ];
   const maxCount = Math.max(...catCounts.map((c) => c.count), 1);
+  const itemMap = Object.fromEntries(items.map((i) => [i.id, i.name]));
 
   return (
     <>
@@ -65,9 +66,6 @@ export default function Dashboard() {
         <div className="topbar-left">
           <span className="topbar-breadcrumb">Overview</span>
           <span className="topbar-title">Dashboard</span>
-        </div>
-        <div className="topbar-actions">
-          <Link className="btn btn-primary" to="/inventory/new">Add Item</Link>
         </div>
       </div>
 
@@ -107,7 +105,7 @@ export default function Dashboard() {
                 <div className="metric-footer">{checkedOut === 0 ? "No active loans" : "Active loans"}</div>
               </div>
               <div className="metric-card" style={{ padding: "14px 18px" }}>
-                <div className="metric-label">Models</div>
+                <div className="metric-label">Item Types</div>
                 <div className="metric-value" style={{ fontSize: "26px" }}>{items.length}</div>
                 <div className="metric-footer">Across {catCounts.length} categories</div>
               </div>
@@ -135,10 +133,18 @@ export default function Dashboard() {
                           className="browse-card"
                           onClick={() => navigate("/inventory")}
                         >
-                          <div className="browse-card__icon" style={{ background: meta.bg, color: meta.color }}>
+                          <div
+                            className="browse-card__icon"
+                            style={{
+                              background: meta.bg,
+                              color: meta.color,
+                              ...(c.count === 0 ? { opacity: 0.5, filter: "grayscale(0.6)" } : {}),
+                            }}
+                          >
                             <Icon />
                           </div>
                           <span className="browse-card__label">{c.name}</span>
+                          {c.count === 0 && <span className="browse-card__sub">0 items</span>}
 
                           {/* Slide-up overlay */}
                           <div
@@ -174,8 +180,9 @@ export default function Dashboard() {
                       <div className={`activity-dot activity-dot--${tx.type === "checkout" ? "out" : "in"}`} />
                       <div>
                         <div className="activity-text">
-                          <strong>{tx.type === "checkout" ? "Check Out" : "Check In"}</strong>
-                          {" — "}{tx.item_id && `Item #${tx.item_id}`}
+                          <strong>{tx.user_name || "Unknown"}</strong>
+                          {" "}{tx.type === "checkout" ? "checked out" : "returned"}{" "}
+                          <strong>{itemMap[tx.item_id] || `Item #${tx.item_id}`}</strong>
                           {tx.quantity > 1 && ` ×${tx.quantity}`}
                         </div>
                         <div className="activity-time">{new Date(tx.created_at).toLocaleString()}</div>
