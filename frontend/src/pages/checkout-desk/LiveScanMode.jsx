@@ -12,6 +12,8 @@ export default function LiveScanMode({ cart, onAddUnit, onClose }) {
   const onAddUnitRef = useRef(onAddUnit);
   const [toasts, setToasts] = useState([]);
   const [cameraError, setCameraError] = useState(null);
+  const [qrBox, setQrBox] = useState(null);
+  const resetTimerRef = useRef(null);
 
   useEffect(() => { cartRef.current = cart; }, [cart]);
   useEffect(() => { onAddUnitRef.current = onAddUnit; }, [onAddUnit]);
@@ -77,7 +79,39 @@ export default function LiveScanMode({ cart, onAddUnit, onClose }) {
         const code = jsQR(imageData.data, canvas.width, canvas.height, {
           inversionAttempts: "dontInvert",
         });
-        if (code?.data) handleCode(code.data);
+        if (code?.data) {
+          if (code.location) {
+            const corners = [
+              code.location.topLeftCorner,
+              code.location.topRightCorner,
+              code.location.bottomLeftCorner,
+              code.location.bottomRightCorner,
+            ];
+            const flippedCorners = corners.map((corner) => ({
+              x: canvas.width - corner.x,
+              y: corner.y,
+            }));
+            const minX = Math.min(...flippedCorners.map((corner) => corner.x));
+            const maxX = Math.max(...flippedCorners.map((corner) => corner.x));
+            const minY = Math.min(...flippedCorners.map((corner) => corner.y));
+            const maxY = Math.max(...flippedCorners.map((corner) => corner.y));
+            const padX = (maxX - minX) * 0.1;
+            const padY = (maxY - minY) * 0.1;
+            const rawLeft = ((minX - padX) / canvas.width) * 100;
+            const rawTop = ((minY - padY) / canvas.height) * 100;
+            const rawWidth = ((maxX - minX + 2 * padX) / canvas.width) * 100;
+            const rawHeight = ((maxY - minY + 2 * padY) / canvas.height) * 100;
+            const left = Math.max(0, rawLeft);
+            const top = Math.max(0, rawTop);
+            const width = Math.min(rawWidth, 100 - left);
+            const height = Math.min(rawHeight, 100 - top);
+
+            setQrBox({ left, top, width, height });
+            clearTimeout(resetTimerRef.current);
+            resetTimerRef.current = setTimeout(() => setQrBox(null), 700);
+          }
+          handleCode(code.data);
+        }
       }
       rafRef.current = requestAnimationFrame(scanFrame);
     }
@@ -112,6 +146,7 @@ export default function LiveScanMode({ cart, onAddUnit, onClose }) {
     return () => {
       mounted = false;
       cancelAnimationFrame(rafRef.current);
+      clearTimeout(resetTimerRef.current);
       streamRef.current?.getTracks().forEach((t) => t.stop());
       if (video.srcObject) {
         video.srcObject = null;
@@ -137,8 +172,24 @@ export default function LiveScanMode({ cart, onAddUnit, onClose }) {
         <div className="live-scan__container">
           <video ref={videoRef} className="live-scan__video" muted playsInline style={{ transform: 'scaleX(-1)' }} />
           <canvas ref={canvasRef} style={{ display: "none" }} />
-          <div className="live-scan__viewfinder" />
-          <div className="live-scan__hint">Aim at a unit QR code</div>
+          <div
+            className="live-scan__viewfinder"
+            style={
+              qrBox
+                ? {
+                    left: `${qrBox.left}%`,
+                    top: `${qrBox.top}%`,
+                    width: `${qrBox.width}%`,
+                    height: `${qrBox.height}%`,
+                    transform: 'none',
+                    transition: 'left 0.1s ease, top 0.1s ease, width 0.1s ease, height 0.1s ease',
+                  }
+                : {
+                    transition: 'left 0.1s ease, top 0.1s ease, width 0.1s ease, height 0.1s ease',
+                  }
+            }
+          />
+          <div className="live-scan__hint">Scan anywhere — camera detects the full frame</div>
           <div className="live-scan__toasts">
             {toasts.map((t) => (
               <div key={t.id} className={`live-scan__toast live-scan__toast--${t.type}`}>
