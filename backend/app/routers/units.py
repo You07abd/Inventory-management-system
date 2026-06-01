@@ -118,7 +118,19 @@ def get_unit_by_asset_code(code: str, db: Session = Depends(get_db)):
         .first()
     )
     if not unit:
-        raise HTTPException(status_code=404, detail="Unit not found.")
+        # Fallback: treat code as an item asset_code, find first available unit
+        from app.models.item import Item as ItemModel
+        item_row = db.query(ItemModel).filter(ItemModel.asset_code == code).first()
+        if item_row:
+            unit = (
+                db.query(Unit)
+                .options(joinedload(Unit.location), joinedload(Unit.current_holder), joinedload(Unit.item))
+                .filter(Unit.item_id == item_row.id, Unit.status == 'available')
+                .order_by(Unit.unit_number)
+                .first()
+            )
+    if not unit:
+        raise HTTPException(status_code=404, detail='Unit not found.')
     result = UnitWithItem.model_validate(unit)
     result.item_name = unit.item.name if unit.item else ""
     result.item_asset_code = unit.item.asset_code if unit.item else ""

@@ -36,6 +36,7 @@ export default function ItemDetail() {
   const [addingUnit, setAddingUnit] = useState(false);
   const [editingUnitId, setEditingUnitId] = useState(null);
   const [editUnitForm, setEditUnitForm] = useState({});
+  const [qrUnit, setQrUnit] = useState(null); // unit object or null
   const [checkoutUnitId, setCheckoutUnitId] = useState(null);
   const [checkinUnitId, setCheckinUnitId] = useState(null);
   const [unitActionForm, setUnitActionForm] = useState({ user_id: "", condition_on_return: "good", notes: "", due_date: "" });
@@ -168,6 +169,23 @@ export default function ItemDetail() {
     } catch (err) {
       setUnitError(getErrorMessage(err));
     }
+  }
+
+  function printUnitQR(unit) {
+    const win = window.open('', '_blank', 'width=420,height=540');
+    win.document.write(`<!DOCTYPE html><html><head><title>QR — ${unit.asset_code}</title>
+      <style>
+        body { font-family: sans-serif; text-align: center; padding: 32px; margin: 0; }
+        img { width: 220px; height: 220px; display: block; margin: 0 auto 16px; }
+        h2 { margin: 0 0 6px; font-size: 18px; font-family: monospace; }
+        p { margin: 0; color: #666; font-size: 13px; }
+      </style></head><body>
+      <img src="${unit.qr_code}" alt="QR code" />
+      <h2>${unit.asset_code}</h2>
+      <p>${item?.name ?? ''}</p>
+      <script>window.onload = function() { window.print(); };<\/script>
+      </body></html>`);
+    win.document.close();
   }
 
   async function checkoutUnit() {
@@ -423,6 +441,7 @@ export default function ItemDetail() {
                           </div>
                         ) : (
                           <div className="row-actions">
+                            <button className='row-btn' onClick={() => setQrUnit(unit)}>QR</button>
                             <button className="row-btn" onClick={() => { setEditingUnitId(unit.id); setEditUnitForm({ serial_number: unit.serial_number || "", condition: unit.condition, location_id: unit.location_id || "", notes: unit.notes || "" }); }}>Edit</button>
                             {unit.status === "available" && (
                               <button className="row-btn row-btn--primary" onClick={() => { setCheckoutUnitId(unit.id); setUnitActionForm({ user_id: "", condition_on_return: "good", notes: "", due_date: "" }); }}>Out</button>
@@ -525,6 +544,30 @@ export default function ItemDetail() {
           </div>
         );
       })()}
+
+      {qrUnit && (
+        <div className='modal-backdrop' onClick={() => setQrUnit(null)}>
+          <div className='modal' onClick={(e) => e.stopPropagation()} style={{ maxWidth: '340px', textAlign: 'center' }}>
+            <div className='modal-header'>
+              <h2>Unit QR Code</h2>
+              <button className='modal-close' onClick={() => setQrUnit(null)}>×</button>
+            </div>
+            {qrUnit.qr_code ? (
+              <img src={qrUnit.qr_code} alt={`QR for ${qrUnit.asset_code}`} style={{ width: '200px', height: '200px', display: 'block', margin: '12px auto' }} />
+            ) : (
+              <div style={{ padding: '32px 0', color: 'var(--color-muted)' }}>No QR code available for this unit.</div>
+            )}
+            <p style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: '14px', margin: '0 0 4px' }}>{qrUnit.asset_code}</p>
+            <p style={{ color: 'var(--color-muted)', fontSize: '12px', margin: '0 0 20px' }}>{item?.name}</p>
+            <div className='modal-actions'>
+              <button className='btn btn-secondary' onClick={() => setQrUnit(null)}>Close</button>
+              {qrUnit.qr_code && (
+                <button className='btn btn-primary' onClick={() => printUnitQR(qrUnit)}>Print</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {checkoutOpen && <CheckoutModal item={checkoutOpen ? item : null} users={users} onClose={() => setCheckoutOpen(false)} onSubmit={checkout} />}
       {checkinOpen && <CheckinModal item={checkinOpen ? item : null} users={users} onClose={() => setCheckinOpen(false)} onSubmit={checkin} />}
