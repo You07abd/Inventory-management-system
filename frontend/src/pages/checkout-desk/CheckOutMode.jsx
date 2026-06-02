@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { getErrorMessage } from "../../api/client";
 import { itemsApi } from "../../api/items";
 import { categoriesApi } from "../../api/categories";
@@ -37,6 +37,10 @@ export default function CheckOutMode() {
   const [editMode, setEditMode] = useState(false);
   const [categoryOrder, setCategoryOrder] = useState([]);
   const [hiddenCategoryIds, setHiddenCategoryIds] = useState([]);
+  const [listCategoryFilter, setListCategoryFilter] = useState(null);
+  const [expandedItemId, setExpandedItemId] = useState(null);
+  const [expandedUnits, setExpandedUnits] = useState([]);
+  const [loadingExpanded, setLoadingExpanded] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -56,7 +60,7 @@ export default function CheckOutMode() {
         setCategories(loadedCats);
         const existingIds = loadedCats.map(c => c.id);
         const hasUncategorized = items.some(i => i.category_id === null);
-        const allAvailableIds = [...existingIds, ...(hasUncategorized ? [null] : [])];
+        const allAvailableIds = [...existingIds, null];
         const rawOrder = localStorage.getItem('checkout_cat_order');
         const rawHidden = localStorage.getItem('checkout_cat_hidden');
         const savedOrder = rawOrder ? JSON.parse(rawOrder) : null;
@@ -107,6 +111,10 @@ export default function CheckOutMode() {
       selectedCategory.id === null ? item.category_id === null : item.category_id === selectedCategory.id
     );
   }, [allItems, selectedCategory]);
+  const listFiltered = useMemo(() => {
+    if (listCategoryFilter === null) return filtered;
+    return filtered.filter(i => i.category_id === listCategoryFilter);
+  }, [filtered, listCategoryFilter]);
 
   function itemDisabledReason(item) {
     if (item.condition === "damaged") return "Damaged";
@@ -132,6 +140,9 @@ export default function CheckOutMode() {
     setSelectedCategory(null);
     setSelectedItem(null);
     setItemUnits([]);
+    setListCategoryFilter(null);
+    setExpandedItemId(null);
+    setExpandedUnits([]);
   }
 
   function moveCategoryUp(id) {
@@ -171,6 +182,22 @@ export default function CheckOutMode() {
     setCart((prev) => prev.filter(({ unit }) => unit.id !== unitId));
   }
 
+  function toggleExpand(item) {
+    if (itemDisabledReason(item)) return;
+    if (expandedItemId === item.id) {
+      setExpandedItemId(null);
+      setExpandedUnits([]);
+      return;
+    }
+    setExpandedItemId(item.id);
+    setExpandedUnits([]);
+    setLoadingExpanded(true);
+    unitsApi.listByItem(item.id).then((data) => {
+      setExpandedUnits(data.filter((u) => u.status === "available" && !cartItemIds.has(u.id)));
+      setLoadingExpanded(false);
+    }).catch(() => setLoadingExpanded(false));
+  }
+
   function updateForm(key, val) {
     setForm((prev) => ({ ...prev, [key]: val }));
   }
@@ -207,20 +234,22 @@ export default function CheckOutMode() {
     <>
       {error && <div className="alert">{error}</div>}
 
-      <div className="panel">
-        <div className="panel-body" style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-          <input className="form-input" value={query} onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by asset code, name, or serial number..." style={{ flex: 1 }} />
-          <button type="button" className={`btn ${viewMode === "grid" ? "btn-primary" : "btn-secondary"}`}
-            onClick={() => switchView("grid")} style={{ whiteSpace: "nowrap" }} disabled={liveScanActive}>Grid</button>
-          <button type="button" className={`btn ${viewMode === "list" ? "btn-primary" : "btn-secondary"}`}
-            onClick={() => switchView("list")} style={{ whiteSpace: "nowrap" }} disabled={liveScanActive}>List</button>
-          <button type="button" className={`btn ${liveScanActive ? "btn-primary" : "btn-secondary"}`}
-            onClick={() => setLiveScanActive((v) => !v)} style={{ whiteSpace: "nowrap" }}>
-            Live Scan
-          </button>
+      {!liveScanActive && (
+        <div className="panel">
+          <div className="panel-body" style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+            <input className="form-input" value={query} onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by asset code, name, or serial number..." style={{ flex: 1 }} />
+            <button type="button" className={`btn ${viewMode === "grid" ? "btn-primary" : "btn-secondary"}`}
+              onClick={() => switchView("grid")} style={{ whiteSpace: "nowrap" }} disabled={liveScanActive}>Grid</button>
+            <button type="button" className={`btn ${viewMode === "list" ? "btn-primary" : "btn-secondary"}`}
+              onClick={() => switchView("list")} style={{ whiteSpace: "nowrap" }} disabled={liveScanActive}>List</button>
+            <button type="button" className={`btn ${liveScanActive ? "btn-primary" : "btn-secondary"}`}
+              onClick={() => setLiveScanActive((v) => !v)} style={{ whiteSpace: "nowrap" }}>
+              Live Scan
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {liveScanActive ? (
         <LiveScanMode
@@ -234,53 +263,159 @@ export default function CheckOutMode() {
         <div className="panel">
           <div className="panel-head" onClick={() => setItemsOpen((o) => !o)} style={{ cursor: "pointer", userSelect: "none" }}>
             <h3>{query ? `Results for "${query}"` : "All Items"}</h3>
-            <span style={{ color: "var(--color-muted)", fontSize: "13px" }}>{filtered.length} items</span>
+            <span style={{ color: "var(--color-muted)", fontSize: "13px" }}>{listFiltered.length} items</span>
           </div>
           <div style={{ display: "grid", gridTemplateRows: itemsOpen ? "1fr" : "0fr", transition: "grid-template-rows 220ms ease" }}>
             <div style={{ overflow: "hidden" }}>
-              {viewMode === "grid" && query.trim() && (
-                <div style={{ color: "var(--color-muted)", fontSize: "12.5px", padding: "12px 14px 0" }}>Clear search to browse by category</div>
-              )}
-              <div className="table-wrap" style={{ maxHeight: "420px", overflowY: "auto" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", padding: "12px 14px 0" }}>
+                <button
+                  type="button"
+                  className={`btn ${listCategoryFilter === null ? "btn-primary" : "btn-secondary"}`}
+                  style={{ fontSize: "12px", padding: "4px 10px" }}
+                  onClick={() => {
+                    setListCategoryFilter(null);
+                    setExpandedItemId(null);
+                  }}
+                >
+                  All
+                </button>
+                {categoryOrder
+                  .filter(id => !hiddenCategoryIds.includes(id))
+                  .map(id => {
+                    const category = id === null
+                      ? UNCATEGORIZED_CATEGORY
+                      : categories.find(c => c.id === id);
+                    if (!category) return null;
+                    return (
+                      <button
+                        key={String(id)}
+                        type="button"
+                        className={`btn ${listCategoryFilter === id ? "btn-primary" : "btn-secondary"}`}
+                        style={{ fontSize: "12px", padding: "4px 10px" }}
+                        onClick={() => {
+                          setListCategoryFilter(id);
+                          setExpandedItemId(null);
+                        }}
+                      >
+                        {category.name}
+                      </button>
+                    );
+                  })}
+              </div>
+              <div className="table-wrap">
                 <table className="inv-table">
                   <thead style={{ position: "sticky", top: 0, zIndex: 1 }}>
                     <tr>
                       <th style={{ width: "4px", padding: 0 }} />
                       <th><div style={{ padding: "9px 14px" }}>Code</div></th>
                       <th><div style={{ padding: "9px 14px" }}>Name</div></th>
+                      {listCategoryFilter === null && <th><div style={{ padding: "9px 14px" }}>Category</div></th>}
                       <th><div style={{ padding: "9px 14px" }}>Location</div></th>
                       <th><div style={{ padding: "9px 14px" }}>Status</div></th>
                       <th><div style={{ padding: "9px 14px" }}></div></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map((item) => {
+                    {listFiltered.map((item) => {
                       const reason = itemDisabledReason(item);
                       const checkedOut = item.quantity - item.available_quantity;
                       const partial = checkedOut > 0 && item.available_quantity > 0;
                       const fullyOut = item.available_quantity === 0;
                       const statusKey = fullyOut ? "out" : partial ? "partial" : "available";
+                      const category = item.category_id === null
+                        ? UNCATEGORIZED_CATEGORY
+                        : categories.find(c => c.id === item.category_id);
                       return (
-                        <tr key={item.id} data-status={statusKey} style={{ opacity: reason ? 0.5 : 1 }}>
-                          <td className="inv-table__accent" />
-                          <td><span className="asset-code">{item.asset_code}</span></td>
-                          <td>{item.name}</td>
-                          <td style={{ color: "var(--color-muted)", fontSize: "13px" }}>{item.location_name || "—"}</td>
-                          <td>
-                            <span className={`inv-table__status inv-table__status--${statusKey}`}>
-                              <span className="inv-table__dot" />
-                              {fullyOut ? "Checked Out" : partial ? "Partial" : "Available"}
-                            </span>
-                          </td>
-                          <td>
-                            {reason
-                              ? <button className="row-btn" disabled style={{ opacity: 0.5 }}>{reason}</button>
-                              : <button className="row-btn row-btn--primary" onClick={() => loadUnitsForItem(item)}>Units</button>}
-                          </td>
-                        </tr>
+                        <React.Fragment key={item.id}>
+                          <tr
+                            data-status={statusKey}
+                            onClick={reason ? undefined : () => toggleExpand(item)}
+                            style={{ opacity: reason ? 0.5 : 1, cursor: reason ? "default" : "pointer" }}
+                          >
+                            <td className="inv-table__accent" />
+                            <td><span className="asset-code">{item.asset_code}</span></td>
+                            <td>{item.name}</td>
+                            {listCategoryFilter === null && (
+                              <td style={{ color: "var(--color-muted)", fontSize: "13px" }}>{category?.name || "—"}</td>
+                            )}
+                            <td style={{ color: "var(--color-muted)", fontSize: "13px" }}>{item.location_name || "—"}</td>
+                            <td>
+                              <span className={`inv-table__status inv-table__status--${statusKey}`}>
+                                <span className="inv-table__dot" />
+                                {fullyOut ? "Checked Out" : partial ? "Partial" : "Available"}
+                              </span>
+                            </td>
+                            <td>
+                              {reason
+                                ? <button className="row-btn" disabled style={{ opacity: 0.5 }}>{reason}</button>
+                                : (
+                                  <button
+                                    className="row-btn row-btn--primary"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleExpand(item);
+                                    }}
+                                  >
+                                    {expandedItemId === item.id ? "Close" : "Units"}
+                                  </button>
+                                )}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td colSpan={listCategoryFilter === null ? 7 : 6} style={{ padding: 0, border: "none" }}>
+                              <div style={{
+                                opacity: expandedItemId === item.id ? 1 : 0,
+                                transform: expandedItemId === item.id ? "translateY(0)" : "translateY(-6px)",
+                                maxHeight: expandedItemId === item.id ? "2000px" : 0,
+                                overflow: "hidden",
+                                padding: expandedItemId === item.id ? "12px 14px" : 0,
+                                borderTop: expandedItemId === item.id ? "1px solid var(--color-border-light)" : "none",
+                                background: expandedItemId === item.id ? "var(--color-surface-raised, var(--color-bg))" : undefined,
+                                transition: "opacity 200ms cubic-bezier(0.16,1,0.3,1), transform 200ms cubic-bezier(0.16,1,0.3,1)",
+                                pointerEvents: expandedItemId === item.id ? "auto" : "none",
+                              }}>
+                                {loadingExpanded ? (
+                                  <div className="loading">Loading units...</div>
+                                ) : expandedUnits.length === 0 ? (
+                                  <div className="empty-state">No available units.</div>
+                                ) : (
+                                  <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", padding: "10px 0" }}>
+                                    {expandedUnits.map((unit) => (
+                                      <div
+                                        key={unit.id}
+                                        className="inv-card"
+                                        style={{ width: "220px", cursor: "default" }}
+                                      >
+                                        <div className="inv-card__header">
+                                          <span className="inv-card__code">{unit.asset_code}</span>
+                                          <span className="inv-card__chip inv-card__chip--available">Available</span>
+                                        </div>
+                                        <div className="inv-card__name">{unit.serial_number || "No serial"}</div>
+                                        <div className="inv-card__meta"><span>{unit.location_name || "—"}</span></div>
+                                        {unit.notes && <div className="inv-card__meta" style={{ fontStyle: "italic" }}><span>{unit.notes}</span></div>}
+                                        <div className="inv-card__footer">
+                                          <span className="inv-card__stats">{unit.condition.replace(/_/g, " ")}</span>
+                                          <button
+                                            className="row-btn row-btn--primary"
+                                            onClick={() => {
+                                              setPendingCartItem(unit);
+                                              setPendingQty(1);
+                                            }}
+                                          >
+                                            Add to Cart
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        </React.Fragment>
                       );
                     })}
-                    {filtered.length === 0 && <tr><td colSpan={6}><div className="empty-state">No items found.</div></td></tr>}
+                    {listFiltered.length === 0 && <tr><td colSpan={listCategoryFilter === null ? 7 : 6}><div className="empty-state">No items found.</div></td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -316,7 +451,6 @@ export default function CheckOutMode() {
                   ? UNCATEGORIZED_CATEGORY
                   : categories.find(c => c.id === id);
                 if (!category) return null;
-                if (id === null && !allItems.some(item => item.category_id === null)) return null;
 
                 const meta = getCategoryMeta(category);
                 const Icon = meta.Icon;
@@ -482,7 +616,7 @@ export default function CheckOutMode() {
           ) : itemUnits.length === 0 ? (
             <div className="empty-state">No available units for this model.</div>
           ) : (
-            <div className="inv-grid" style={{ padding: "14px" }}>
+            <div className="inv-grid">
               {itemUnits.map((unit) => (
                 <div key={unit.id} className="inv-card" style={{ cursor: "pointer" }} onClick={() => { setPendingCartItem(unit); setPendingQty(1); }}>
                   <div className="inv-card__header">

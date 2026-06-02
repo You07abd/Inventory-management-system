@@ -181,6 +181,7 @@ def checkout_unit(unit_id: int, payload: UnitCheckoutRequest, db: Session = Depe
 
     unit.status = "checked_out"
     unit.current_holder_id = payload.user_id
+    db.flush()
     _recompute_item_counts(unit.item, db)
 
     tx = Transaction(
@@ -212,6 +213,7 @@ def checkin_unit(unit_id: int, payload: UnitCheckinRequest, db: Session = Depend
 
     unit.status = "available"
     unit.current_holder_id = None
+    db.flush()
     if payload.condition_on_return:
         unit.condition = payload.condition_on_return
     _recompute_item_counts(unit.item, db)
@@ -260,6 +262,7 @@ def unit_cart_checkout(payload: UnitCartCheckoutRequest, db: Session = Depends(g
     for unit in units:
         unit.status = "checked_out"
         unit.current_holder_id = payload.user_id
+        db.flush()
         _recompute_item_counts(unit.item, db)
         item_name_map[unit.id] = unit.item.name
 
