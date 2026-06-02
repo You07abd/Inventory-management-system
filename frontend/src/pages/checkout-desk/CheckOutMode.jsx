@@ -16,7 +16,7 @@ export default function CheckOutMode() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(() => { try { const s = localStorage.getItem('checkout_cart'); return s ? JSON.parse(s) : []; } catch { return []; } });
   const [form, setForm] = useState(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -88,6 +88,8 @@ export default function CheckOutMode() {
   useEffect(() => {
     localStorage.setItem('checkout_cat_hidden', JSON.stringify(hiddenCategoryIds));
   }, [hiddenCategoryIds]);
+
+  useEffect(() => { localStorage.setItem('checkout_cart', JSON.stringify(cart)); }, [cart]);
 
   const holderMap = useMemo(() => Object.fromEntries(users.map((u) => [u.id, u.name])), [users]);
   const cartItemIds = useMemo(() => new Set(cart.map((c) => c.unit.id)), [cart]);
@@ -225,6 +227,7 @@ export default function CheckOutMode() {
 
   function startNewCart() {
     setCart([]);
+    localStorage.removeItem('checkout_cart');
     setForm(emptyForm);
     setReceipt(null);
     setError(null);

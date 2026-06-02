@@ -581,8 +581,8 @@ thead th { padding: 0; }
 .inv-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 10px;
-  padding: 2px;
+  gap: 14px;
+  padding: 18px;
 }
 
 .inv-card {
