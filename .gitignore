@@ -1,13 +1,15 @@
 .claude/
 CLAUDE.md
 __pycache__/
+**/__pycache__/
 *.pyc
+**/*.pyc
 backend/venv/
 backend/.env
+backend/.env~
 frontend/.env
 frontend/node_modules/
-CLAUDE.md
+frontend/dist/
 .superpowers/
-docs/superpowers/
 docs/superpowers/
 docs/codex-setup.md
