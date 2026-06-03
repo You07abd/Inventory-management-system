@@ -260,11 +260,8 @@ export default function InventoryList({ initialMode = "browse" }) {
                 <div className="form-group">
                   <label className="form-label">Condition</label>
                   <select className="form-select" value={itemForm.condition} onChange={(e) => updateItemForm("condition", e.target.value)}>
-                    <option value="excellent">Excellent</option>
                     <option value="good">Good</option>
-                    <option value="fair">Fair</option>
-                    <option value="poor">Poor</option>
-                    <option value="needs_inspection">Needs Inspection</option>
+                    <option value="needs_repair">Needs Repair</option>
                     <option value="damaged">Damaged</option>
                   </select>
                 </div>
@@ -451,11 +448,8 @@ export default function InventoryList({ initialMode = "browse" }) {
                   onChange={(e) => setConditionFilter(e.target.value)}
                 >
                   <option value="">All conditions</option>
-                  <option value="excellent">Excellent</option>
                   <option value="good">Good</option>
-                  <option value="fair">Fair</option>
-                  <option value="poor">Poor</option>
-                  <option value="needs_inspection">Needs Inspection</option>
+                  <option value="needs_repair">Needs Repair</option>
                   <option value="damaged">Damaged</option>
                 </select>
               </div>
@@ -503,7 +497,7 @@ export default function InventoryList({ initialMode = "browse" }) {
                 <div className="inv-grid">
                   {filteredItems.map((item) => {
                     const categoryName = item.category_id == null ? "Uncategorized" : categories.find((c) => c.id === item.category_id)?.name ?? "—";
-                    const canCheckout = item.available_quantity > 0 && item.condition !== "damaged";
+                    const canCheckout = item.available_quantity > 0 && item.condition === "good";
                     const canCheckin = item.available_quantity < item.quantity;
                     const fullyOut = item.available_quantity === 0;
                     const partial = !fullyOut && item.available_quantity < item.quantity;

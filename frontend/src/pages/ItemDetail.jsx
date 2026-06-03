@@ -16,7 +16,7 @@ function findName(collection, id, fallback = "Unassigned") {
 }
 
 function conditionBadgeClass(condition) {
-  const map = { excellent: "badge--excellent", good: "badge--good", fair: "badge--fair", poor: "badge--poor" };
+  const map = { good: "badge--good", needs_repair: "badge--fair", damaged: "badge--poor" };
   return map[condition] || "badge--good";
 }
 
@@ -39,7 +39,7 @@ export default function ItemDetail() {
   const [qrUnit, setQrUnit] = useState(null); // unit object or null
   const [checkoutUnitId, setCheckoutUnitId] = useState(null);
   const [checkinUnitId, setCheckinUnitId] = useState(null);
-  const [unitActionForm, setUnitActionForm] = useState({ user_id: "", damaged: false, notes: "", due_date: "" });
+  const [unitActionForm, setUnitActionForm] = useState({ user_id: "", conditionReport: "", notes: "", due_date: "" });
   const [error, setError] = useState("");
   const [switchingMode, setSwitchingMode] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -198,7 +198,7 @@ export default function ItemDetail() {
         due_date: unitActionForm.due_date ? unitActionForm.due_date + "T00:00:00" : null,
       });
       setCheckoutUnitId(null);
-      setUnitActionForm({ user_id: "", damaged: false, notes: "", due_date: "" });
+      setUnitActionForm({ user_id: "", conditionReport: "", notes: "", due_date: "" });
       const refreshed = await unitsApi.listByItem(itemId);
       setUnits(refreshed);
       await load();
@@ -213,14 +213,14 @@ export default function ItemDetail() {
     try {
       await unitsApi.checkin(checkinUnitId, {
         user_id: unit.current_holder_id,
-        condition_on_return: unitActionForm.damaged ? "damaged" : null,
+        condition_on_return: unitActionForm.conditionReport || null,
         notes: unitActionForm.notes || null,
       });
-      if (unitActionForm.damaged) {
-        await unitsApi.update(checkinUnitId, { condition: "damaged" });
+      if (unitActionForm.conditionReport) {
+        await unitsApi.update(checkinUnitId, { condition: unitActionForm.conditionReport });
       }
       setCheckinUnitId(null);
-      setUnitActionForm({ user_id: "", damaged: false, notes: "", due_date: "" });
+      setUnitActionForm({ user_id: "", conditionReport: "", notes: "", due_date: "" });
       const refreshed = await unitsApi.listByItem(itemId);
       setUnits(refreshed);
       await load();
@@ -274,7 +274,7 @@ export default function ItemDetail() {
                     <div className="detail-field">
                       <div className="detail-field-label">Condition</div>
                       <div className="detail-field-value">
-                        <span className={`badge ${conditionBadgeClass(item.condition)}`}>{item.condition}</span>
+                        <span className={`badge ${conditionBadgeClass(item.condition)}`}>{item.condition?.replace(/_/g, " ")}</span>
                       </div>
                     </div>
                     <div className="detail-field">
@@ -405,11 +405,8 @@ export default function ItemDetail() {
                     <label className="form-label">Condition</label>
                     <select className="form-select" value={addUnitForm.condition}
                       onChange={(e) => setAddUnitForm((f) => ({ ...f, condition: e.target.value }))}>
-                      <option value="excellent">Excellent</option>
                       <option value="good">Good</option>
-                      <option value="fair">Fair</option>
-                      <option value="poor">Poor</option>
-                      <option value="needs_inspection">Needs Inspection</option>
+                      <option value="needs_repair">Needs Repair</option>
                       <option value="damaged">Damaged</option>
                     </select>
                   </div>
@@ -464,11 +461,8 @@ export default function ItemDetail() {
                         {editingUnitId === unit.id ? (
                           <select className="form-select" value={editUnitForm.condition}
                             onChange={(e) => setEditUnitForm((f) => ({ ...f, condition: e.target.value }))}>
-                            <option value="excellent">Excellent</option>
                             <option value="good">Good</option>
-                            <option value="fair">Fair</option>
-                            <option value="poor">Poor</option>
-                            <option value="needs_inspection">Needs Inspection</option>
+                            <option value="needs_repair">Needs Repair</option>
                             <option value="damaged">Damaged</option>
                           </select>
                         ) : (
@@ -503,10 +497,10 @@ export default function ItemDetail() {
                             <button className='row-btn' onClick={() => setQrUnit(unit)}>QR</button>
                             <button className="row-btn" onClick={() => { setEditingUnitId(unit.id); setEditUnitForm({ serial_number: unit.serial_number || "", condition: unit.condition, location_id: unit.location_id || "", notes: unit.notes || "" }); }}>Edit</button>
                             {unit.status === "available" && (
-                              <button className="row-btn row-btn--primary" onClick={() => { setCheckoutUnitId(unit.id); setUnitActionForm({ user_id: "", damaged: false, notes: "", due_date: "" }); }}>Out</button>
+                              <button className="row-btn row-btn--primary" onClick={() => { setCheckoutUnitId(unit.id); setUnitActionForm({ user_id: "", conditionReport: "", notes: "", due_date: "" }); }}>Out</button>
                             )}
                             {unit.status === "checked_out" && (
-                              <button className="row-btn" onClick={() => { setCheckinUnitId(unit.id); setUnitActionForm({ user_id: "", damaged: false, notes: "", due_date: "" }); }}>In</button>
+                              <button className="row-btn" onClick={() => { setCheckinUnitId(unit.id); setUnitActionForm({ user_id: "", conditionReport: "", notes: "", due_date: "" }); }}>In</button>
                             )}
                             <button className="row-btn" style={{ color: "#dc2626" }} onClick={() => deleteUnit(unit.id)}>Del</button>
                           </div>
@@ -583,13 +577,14 @@ export default function ItemDetail() {
                     onChange={(e) => setUnitActionForm((f) => ({ ...f, notes: e.target.value }))} />
                 </div>
                 <div className="form-group wide">
-                  <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }}>
-                    <input type="checkbox" checked={unitActionForm.damaged}
-                      onChange={(e) => setUnitActionForm((f) => ({ ...f, damaged: e.target.checked }))} />
-                    <span style={{ color: unitActionForm.damaged ? "#dc2626" : "inherit" }}>
-                      {unitActionForm.damaged ? "⚠ Returned damaged — will mark unit as damaged" : "Report damage"}
-                    </span>
-                  </label>
+                  <label className="form-label">Flag Condition Issue</label>
+                  <select className="form-select" value={unitActionForm.conditionReport}
+                    onChange={(e) => setUnitActionForm((f) => ({ ...f, conditionReport: e.target.value }))}
+                    style={{ color: unitActionForm.conditionReport ? "#dc2626" : "inherit" }}>
+                    <option value="">None — returned fine</option>
+                    <option value="needs_repair">Needs Repair</option>
+                    <option value="damaged">Damaged</option>
+                  </select>
                 </div>
               </div>
               {unitError && <div className="alert">{unitError}</div>}

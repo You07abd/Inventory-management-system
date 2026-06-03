@@ -6,7 +6,7 @@ import { usersApi } from "../api/users";
 import QRCodeDisplay from "../components/QRCodeDisplay.jsx";
 
 function conditionBadgeClass(condition) {
-  const map = { excellent: "badge--excellent", good: "badge--good", fair: "badge--fair", poor: "badge--poor" };
+  const map = { good: "badge--good", needs_repair: "badge--fair", damaged: "badge--poor" };
   return map[condition] || "badge--good";
 }
 
@@ -15,7 +15,7 @@ export default function QRLookup() {
   const [unit, setUnit] = useState(null);
   const [users, setUsers] = useState([]);
   const [actionOpen, setActionOpen] = useState(null);
-  const [actionForm, setActionForm] = useState({ user_id: "", damaged: false, notes: "", due_date: "" });
+  const [actionForm, setActionForm] = useState({ user_id: "", conditionReport: "", notes: "", due_date: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -53,7 +53,7 @@ export default function QRLookup() {
       const refreshed = await unitsApi.getByAssetCode(unit.asset_code);
       setUnit(refreshed);
       setActionOpen(null);
-      setActionForm({ user_id: "", damaged: false, notes: "", due_date: "" });
+      setActionForm({ user_id: "", conditionReport: "", notes: "", due_date: "" });
     } catch (err) {
       setError(getErrorMessage(err));
     }
@@ -64,16 +64,16 @@ export default function QRLookup() {
     try {
       await unitsApi.checkin(unit.id, {
         user_id: unit.current_holder_id,
-        condition_on_return: actionForm.damaged ? "damaged" : null,
+        condition_on_return: actionForm.conditionReport || null,
         notes: actionForm.notes || null,
       });
-      if (actionForm.damaged) {
-        await unitsApi.update(unit.id, { condition: "damaged" });
+      if (actionForm.conditionReport) {
+        await unitsApi.update(unit.id, { condition: actionForm.conditionReport });
       }
       const refreshed = await unitsApi.getByAssetCode(unit.asset_code);
       setUnit(refreshed);
       setActionOpen(null);
-      setActionForm({ user_id: "", damaged: false, notes: "", due_date: "" });
+      setActionForm({ user_id: "", conditionReport: "", notes: "", due_date: "" });
     } catch (err) {
       setError(getErrorMessage(err));
     }
@@ -224,13 +224,14 @@ export default function QRLookup() {
                   onChange={(e) => setActionForm((f) => ({ ...f, notes: e.target.value }))} />
               </div>
               <div className="form-group wide">
-                <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }}>
-                  <input type="checkbox" checked={actionForm.damaged}
-                    onChange={(e) => setActionForm((f) => ({ ...f, damaged: e.target.checked }))} />
-                  <span style={{ color: actionForm.damaged ? "#dc2626" : "inherit" }}>
-                    {actionForm.damaged ? "⚠ Returned damaged — will mark unit as damaged" : "Report damage"}
-                  </span>
-                </label>
+                <label className="form-label">Flag Condition Issue</label>
+                <select className="form-select" value={actionForm.conditionReport}
+                  onChange={(e) => setActionForm((f) => ({ ...f, conditionReport: e.target.value }))}
+                  style={{ color: actionForm.conditionReport ? "#dc2626" : "inherit" }}>
+                  <option value="">None — returned fine</option>
+                  <option value="needs_repair">Needs Repair</option>
+                  <option value="damaged">Damaged</option>
+                </select>
               </div>
             </div>
             <div className="modal-actions">

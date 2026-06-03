@@ -116,7 +116,7 @@ export default function CheckOutMode() {
     );
   }, [allItems, query]);
   const availableItems = useMemo(
-    () => allItems.filter((i) => i.available_quantity > 0 && i.condition !== "damaged"),
+    () => allItems.filter((i) => i.available_quantity > 0 && i.condition === "good"),
     [allItems]
   );
   const selectedCategoryItems = useMemo(() => {
@@ -141,6 +141,7 @@ export default function CheckOutMode() {
   const listUncategorizedMeta = getCategoryMeta(UNCATEGORIZED_CATEGORY);
 
   function itemDisabledReason(item) {
+    if (item.condition === "needs_repair") return "Needs Repair";
     if (item.condition === "damaged") return "Damaged";
     if (item.available_quantity <= 0) return `Out — ${holderMap[item.current_holder_id] ?? "Unknown"}`;
     return null;
@@ -439,11 +440,8 @@ export default function CheckOutMode() {
                       }}
                     >
                       <option value="">All conditions</option>
-                      <option value="excellent">Excellent</option>
                       <option value="good">Good</option>
-                      <option value="fair">Fair</option>
-                      <option value="poor">Poor</option>
-                      <option value="needs_inspection">Needs Inspection</option>
+                      <option value="needs_repair">Needs Repair</option>
                       <option value="damaged">Damaged</option>
                     </select>
                   </div>
@@ -747,7 +745,7 @@ export default function CheckOutMode() {
               const chipLabel = reason === "Damaged" ? "Damaged" : fullyOut ? "Out" : partial ? "Partial" : "Available";
               return (
                 <div key={item.id} className="inv-card" onClick={() => {
-                  if (item.available_quantity > 0 && item.condition !== "damaged") {
+                  if (item.available_quantity > 0 && item.condition === "good") {
                     if (item.track_units === false) {
                       setFungibleItem(item);
                       setFungibleQty(1);

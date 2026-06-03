@@ -8,11 +8,8 @@ import { unitsApi } from "../../api/units";
 import { getCategoryMeta, UNCATEGORIZED_CATEGORY } from "../../utils/categoryMeta.jsx";
 
 const CONDITIONS = [
-  { value: "excellent", label: "Excellent" },
   { value: "good", label: "Good" },
-  { value: "fair", label: "Fair" },
-  { value: "poor", label: "Poor" },
-  { value: "needs_inspection", label: "Needs Inspection" },
+  { value: "needs_repair", label: "Needs Repair" },
   { value: "damaged", label: "Damaged" },
 ];
 const UNCATEGORIZED_META = getCategoryMeta(UNCATEGORIZED_CATEGORY);
@@ -44,7 +41,7 @@ export default function CheckInMode() {
   const [bulkReturnUserId, setBulkReturnUserId] = useState("");
   const [bulkReturnError, setBulkReturnError] = useState(null);
   const [bulkReturnSubmitting, setBulkReturnSubmitting] = useState(false);
-  const [damagedReported, setDamagedReported] = useState(new Set());
+  const [conditionReported, setConditionReported] = useState({});
 
   useEffect(() => {
     let active = true;
@@ -567,16 +564,27 @@ export default function CheckInMode() {
                     <li key={unit.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "4px 0" }}>
                       <span className="asset-code" style={{ marginRight: "4px" }}>{unit.asset_code}</span>
                       <span style={{ flex: 1 }}>{itemName(unit.item_id)}</span>
-                      {damagedReported.has(unit.id) ? (
-                        <span style={{ fontSize: "11px", color: "#dc2626", fontWeight: 600 }}>⚠ Damaged</span>
+                      {conditionReported[unit.id] ? (
+                        <span style={{ fontSize: "11px", fontWeight: 600, color: conditionReported[unit.id] === "damaged" ? "#dc2626" : "#d97706" }}>
+                          ⚠ {conditionReported[unit.id] === "damaged" ? "Damaged" : "Needs Repair"}
+                        </span>
                       ) : (
-                        <button type="button" className="row-btn" style={{ fontSize: "11px", color: "var(--color-muted)" }}
-                          onClick={async () => {
-                            await unitsApi.update(unit.id, { condition: "damaged" });
-                            setDamagedReported((prev) => new Set([...prev, unit.id]));
-                          }}>
-                          Report Damage
-                        </button>
+                        <span style={{ display: "flex", gap: "4px" }}>
+                          <button type="button" className="row-btn" style={{ fontSize: "11px" }}
+                            onClick={async () => {
+                              await unitsApi.update(unit.id, { condition: "needs_repair" });
+                              setConditionReported((prev) => ({ ...prev, [unit.id]: "needs_repair" }));
+                            }}>
+                            Needs Repair
+                          </button>
+                          <button type="button" className="row-btn" style={{ fontSize: "11px", color: "#dc2626" }}
+                            onClick={async () => {
+                              await unitsApi.update(unit.id, { condition: "damaged" });
+                              setConditionReported((prev) => ({ ...prev, [unit.id]: "damaged" }));
+                            }}>
+                            Damaged
+                          </button>
+                        </span>
                       )}
                     </li>
                   ))}
