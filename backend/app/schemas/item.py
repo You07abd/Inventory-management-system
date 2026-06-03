@@ -14,6 +14,7 @@ class ItemBase(BaseModel):
     condition: str = "good"
     status: str = "available"
     qr_code: str | None = None
+    track_units: bool = True
     current_holder_id: int | None = None
     category_id: int | None = None
     location_id: int | None = None
@@ -27,6 +28,7 @@ class ItemCreate(BaseModel):
     available_quantity: int | None = Field(default=None, ge=0)
     condition: str = "good"
     status: str = "available"
+    track_units: bool = True
     current_holder_id: int | None = None
     category_id: int | None = None
     location_id: int | None = None
@@ -40,6 +42,7 @@ class ItemUpdate(BaseModel):
     available_quantity: int | None = Field(default=None, ge=0)
     condition: str | None = None
     status: str | None = None
+    track_units: bool = True
     current_holder_id: int | None = None
     category_id: int | None = None
     location_id: int | None = None
@@ -51,6 +54,7 @@ class Item(ItemBase):
     id: int
     asset_code: str
     available_quantity: int
+    track_units: bool = True
     created_at: datetime
     updated_at: datetime
     location_name: str | None = None

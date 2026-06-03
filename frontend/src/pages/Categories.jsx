@@ -12,6 +12,7 @@ function buildForm(category) {
     description: category?.description ?? "",
     icon: getCategoryIconKey(category),
     color: category ? meta.color : "#2563eb",
+    default_tracking: category?.default_tracking ?? "unit",
   };
 }
 
@@ -105,6 +106,7 @@ export default function Categories({ initialMode = "manage" }) {
         description: createForm.description || null,
         icon: createForm.icon || null,
         color: createForm.color,
+        default_tracking: createForm.default_tracking,
       });
       const nextCategories = [...categories, created].sort((a, b) => a.name.localeCompare(b.name));
       setCategories(nextCategories);
@@ -133,6 +135,7 @@ export default function Categories({ initialMode = "manage" }) {
         description: form.description || null,
         icon: form.icon || null,
         color: form.color,
+        default_tracking: form.default_tracking,
       });
       setCategories((current) => current.map((category) => category.id === updated.id ? updated : category));
       setForm(buildForm(updated));
@@ -230,6 +233,30 @@ export default function Categories({ initialMode = "manage" }) {
                   <span style={{ fontSize: "12.5px", color: "var(--color-text-2)" }}>{createForm.color}</span>
                 </div>
               </div>
+              <div className="form-group wide">
+                <label className="form-label">Default Tracking Mode</label>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    type="button"
+                    className={`btn ${createForm.default_tracking === "unit" ? "btn-primary" : "btn-secondary"}`}
+                    onClick={() => updateCreateForm("default_tracking", "unit")}
+                  >
+                    Unit Tracked
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn ${createForm.default_tracking === "bulk" ? "btn-primary" : "btn-secondary"}`}
+                    onClick={() => updateCreateForm("default_tracking", "bulk")}
+                  >
+                    Bulk / Pool
+                  </button>
+                </div>
+                <div style={{ fontSize: "12px", color: "var(--color-muted)", marginTop: "6px" }}>
+                  {createForm.default_tracking === "unit"
+                    ? "Items will require individual unit selection at checkout."
+                    : "Items will use quantity-based checkout — no unit picking required."}
+                </div>
+              </div>
             </div>
             <div className="form-actions">
               <button type="button" className="btn btn-secondary" onClick={closeCreateCategory}>Cancel</button>
@@ -256,7 +283,14 @@ export default function Categories({ initialMode = "manage" }) {
                     <span className="category-row-btn__icon" style={{ color: meta.color, background: meta.bg }}><Icon /></span>
                     <span className="category-row-btn__body">
                       <span className="category-row-btn__name">{category.name}</span>
-                      <span className="category-row-btn__meta">{count} item{count === 1 ? "" : "s"}</span>
+                      <span className="category-row-btn__meta">
+                        {count} item{count === 1 ? "" : "s"}
+                        {!isUncategorizedCategory(category) && (
+                          <span style={{ marginLeft: "6px", fontSize: "10px", opacity: 0.7 }}>
+                            · {category.default_tracking === "bulk" ? "bulk" : "unit"}
+                          </span>
+                        )}
+                      </span>
                     </span>
                   </button>
                 );
@@ -338,6 +372,30 @@ export default function Categories({ initialMode = "manage" }) {
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                     <input className="form-input" type="color" value={form.color} onChange={(e) => update("color", e.target.value)} style={{ width: "56px", padding: "3px" }} />
                     <span style={{ fontSize: "12.5px", color: "var(--color-text-2)" }}>{form.color}</span>
+                  </div>
+                </div>
+                <div className="form-group wide">
+                  <label className="form-label">Default Tracking Mode</label>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button
+                      type="button"
+                      className={`btn ${form.default_tracking === "unit" ? "btn-primary" : "btn-secondary"}`}
+                      onClick={() => update("default_tracking", "unit")}
+                    >
+                      Unit Tracked
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn ${form.default_tracking === "bulk" ? "btn-primary" : "btn-secondary"}`}
+                      onClick={() => update("default_tracking", "bulk")}
+                    >
+                      Bulk / Pool
+                    </button>
+                  </div>
+                  <div style={{ fontSize: "12px", color: "var(--color-muted)", marginTop: "6px" }}>
+                    {form.default_tracking === "unit"
+                      ? "New items in this category default to unit tracking."
+                      : "New items in this category default to bulk / pool checkout."}
                   </div>
                 </div>
               </div>

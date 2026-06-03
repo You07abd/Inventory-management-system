@@ -19,6 +19,7 @@ const emptyItemForm = {
   condition: "good",
   category_id: "",
   location_id: "",
+  track_units: true,
 };
 
 export default function InventoryList({ initialMode = "browse" }) {
@@ -41,6 +42,7 @@ export default function InventoryList({ initialMode = "browse" }) {
   const [viewMode, setViewMode] = useState("list"); // 'grid' | 'list'
   const [pageMode, setPageMode] = useState(initialMode === "create" ? "create" : "browse");
   const [itemForm, setItemForm] = useState(emptyItemForm);
+  const [trackingOverridden, setTrackingOverridden] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState(null);
   const [locationFilter, setLocationFilter] = useState(null);
   const [statusFilter,   setStatusFilter]   = useState("");
@@ -139,6 +141,7 @@ export default function InventoryList({ initialMode = "browse" }) {
 
   function openCreateItem() {
     setItemForm(emptyItemForm);
+    setTrackingOverridden(false);
     setError("");
     setNotice("");
     setPageMode("create");
@@ -146,6 +149,7 @@ export default function InventoryList({ initialMode = "browse" }) {
 
   function closeCreateItem() {
     setItemForm(emptyItemForm);
+    setTrackingOverridden(false);
     setPageMode("browse");
     navigate("/inventory", { replace: true });
   }
@@ -159,11 +163,12 @@ export default function InventoryList({ initialMode = "browse" }) {
       await itemsApi.create({
         name: itemForm.name,
         description: itemForm.description || null,
-        serial_number: itemForm.serial_number || null,
+        serial_number: itemForm.track_units ? (itemForm.serial_number || null) : null,
         quantity: Number(itemForm.quantity),
         condition: itemForm.condition,
         category_id: itemForm.category_id ? Number(itemForm.category_id) : null,
         location_id: itemForm.location_id ? Number(itemForm.location_id) : null,
+        track_units: itemForm.track_units,
       });
       setItemForm(emptyItemForm);
       setPageMode("browse");
@@ -211,6 +216,30 @@ export default function InventoryList({ initialMode = "browse" }) {
             <form className="form-card" onSubmit={createItem}>
               <div className="form-grid">
                 <div className="form-group wide">
+                  <label className="form-label">Tracking Mode</label>
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                    <button
+                      type="button"
+                      className={`btn ${itemForm.track_units ? "btn-primary" : "btn-secondary"}`}
+                      onClick={() => { updateItemForm("track_units", true); setTrackingOverridden(true); }}
+                    >
+                      Unit Tracked
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn ${!itemForm.track_units ? "btn-primary" : "btn-secondary"}`}
+                      onClick={() => { updateItemForm("track_units", false); setTrackingOverridden(true); }}
+                    >
+                      Bulk / Pool
+                    </button>
+                    {itemForm.category_id && !trackingOverridden && (
+                      <span style={{ fontSize: "12px", color: "var(--color-muted)" }}>
+                        inherited from category
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="form-group wide">
                   <label className="form-label">Name</label>
                   <input className="form-input" value={itemForm.name} onChange={(e) => updateItemForm("name", e.target.value)} required />
                 </div>
@@ -218,10 +247,12 @@ export default function InventoryList({ initialMode = "browse" }) {
                   <label className="form-label">Description</label>
                   <textarea className="form-textarea" value={itemForm.description} onChange={(e) => updateItemForm("description", e.target.value)} rows="3" />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Serial Number</label>
-                  <input className="form-input" value={itemForm.serial_number} onChange={(e) => updateItemForm("serial_number", e.target.value)} />
-                </div>
+                {itemForm.track_units && (
+                  <div className="form-group">
+                    <label className="form-label">Serial Number</label>
+                    <input className="form-input" value={itemForm.serial_number} onChange={(e) => updateItemForm("serial_number", e.target.value)} />
+                  </div>
+                )}
                 <div className="form-group">
                   <label className="form-label">Quantity</label>
                   <input className="form-input" type="number" min="1" value={itemForm.quantity} onChange={(e) => updateItemForm("quantity", e.target.value)} required />
@@ -239,7 +270,22 @@ export default function InventoryList({ initialMode = "browse" }) {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Category</label>
-                  <select className="form-select" value={itemForm.category_id} onChange={(e) => updateItemForm("category_id", e.target.value)}>
+                  <select
+                    className="form-select"
+                    value={itemForm.category_id}
+                    onChange={(e) => {
+                      const catId = e.target.value;
+                      updateItemForm("category_id", catId);
+                      if (!trackingOverridden) {
+                        if (catId) {
+                          const cat = categories.find((c) => String(c.id) === catId);
+                          if (cat) updateItemForm("track_units", cat.default_tracking !== "bulk");
+                        } else {
+                          updateItemForm("track_units", true);
+                        }
+                      }
+                    }}
+                  >
                     <option value="">Uncategorized</option>
                     {categories.map((category) => (
                       <option key={category.id} value={category.id}>{category.name}</option>

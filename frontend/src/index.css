@@ -402,7 +402,7 @@ thead th { padding: 0; }
 .login-continue:disabled { background: #cbd5e1; cursor: not-allowed; }
 
 /* ── Detail layout ──────────────────────────────── */
-.detail-layout { display: grid; grid-template-columns: 1fr 270px; gap: 16px; align-items: start; }
+.detail-layout { display: grid; grid-template-columns: 1fr; gap: 16px; align-items: start; }
 .detail-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 .detail-field { display: flex; flex-direction: column; gap: 3px; }
 .detail-field--wide { grid-column: 1 / -1; }

@@ -9,7 +9,6 @@ import { unitsApi } from "../api/units";
 import { usersApi } from "../api/users";
 import CheckinModal from "../components/CheckinModal.jsx";
 import CheckoutModal from "../components/CheckoutModal.jsx";
-import QRCodeDisplay from "../components/QRCodeDisplay.jsx";
 
 function findName(collection, id, fallback = "Unassigned") {
   if (id == null) return fallback;
@@ -40,8 +39,9 @@ export default function ItemDetail() {
   const [qrUnit, setQrUnit] = useState(null); // unit object or null
   const [checkoutUnitId, setCheckoutUnitId] = useState(null);
   const [checkinUnitId, setCheckinUnitId] = useState(null);
-  const [unitActionForm, setUnitActionForm] = useState({ user_id: "", condition_on_return: "good", notes: "", due_date: "" });
+  const [unitActionForm, setUnitActionForm] = useState({ user_id: "", damaged: false, notes: "", due_date: "" });
   const [error, setError] = useState("");
+  const [switchingMode, setSwitchingMode] = useState(false);
   const [loading, setLoading] = useState(true);
 
   async function load() {
@@ -198,7 +198,7 @@ export default function ItemDetail() {
         due_date: unitActionForm.due_date ? unitActionForm.due_date + "T00:00:00" : null,
       });
       setCheckoutUnitId(null);
-      setUnitActionForm({ user_id: "", condition_on_return: "good", notes: "", due_date: "" });
+      setUnitActionForm({ user_id: "", damaged: false, notes: "", due_date: "" });
       const refreshed = await unitsApi.listByItem(itemId);
       setUnits(refreshed);
       await load();
@@ -213,11 +213,14 @@ export default function ItemDetail() {
     try {
       await unitsApi.checkin(checkinUnitId, {
         user_id: unit.current_holder_id,
-        condition_on_return: unitActionForm.condition_on_return,
+        condition_on_return: unitActionForm.damaged ? "damaged" : null,
         notes: unitActionForm.notes || null,
       });
+      if (unitActionForm.damaged) {
+        await unitsApi.update(checkinUnitId, { condition: "damaged" });
+      }
       setCheckinUnitId(null);
-      setUnitActionForm({ user_id: "", condition_on_return: "good", notes: "", due_date: "" });
+      setUnitActionForm({ user_id: "", damaged: false, notes: "", due_date: "" });
       const refreshed = await unitsApi.listByItem(itemId);
       setUnits(refreshed);
       await load();
@@ -252,9 +255,11 @@ export default function ItemDetail() {
               <div className="panel">
                 <div className="panel-head">
                   <h3>Asset Information</h3>
-                  <span className={`badge ${isAvailable ? "badge--available" : "badge--checked-out"}`}>
-                    {isAvailable ? "Available" : "Checked Out"}
-                  </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span className={`badge ${isAvailable ? "badge--available" : "badge--checked-out"}`}>
+                      {isAvailable ? "Available" : "Checked Out"}
+                    </span>
+                  </div>
                 </div>
                 <div className="panel-body">
                   <div className="detail-grid">
@@ -284,6 +289,31 @@ export default function ItemDetail() {
                       <div className="detail-field-label">Availability</div>
                       <div className="detail-field-value">{item.available_quantity} / {item.quantity} units</div>
                     </div>
+                    <div className="detail-field">
+                      <div className="detail-field-label">Tracking Mode</div>
+                      <div className="detail-field-value" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                        <span>{item.track_units ? "Unit Tracked" : "Bulk / Pool"}</span>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ fontSize: "11px", padding: "3px 10px" }}
+                          disabled={switchingMode}
+                          onClick={async () => {
+                            setSwitchingMode(true);
+                            try {
+                              await itemsApi.update(item.id, { track_units: !item.track_units });
+                              await load();
+                            } catch (err) {
+                              setError(getErrorMessage(err));
+                            } finally {
+                              setSwitchingMode(false);
+                            }
+                          }}
+                        >
+                          {switchingMode ? "Switching..." : "Switch"}
+                        </button>
+                      </div>
+                    </div>
                     {item.description && (
                       <div className="detail-field detail-field--wide">
                         <div className="detail-field-label">Description</div>
@@ -301,31 +331,59 @@ export default function ItemDetail() {
                 </div>
                 <div className="panel-body">
                   {transactions.length === 0 && <div style={{ color: "var(--color-muted)", fontSize: "12px" }}>No transactions for this item.</div>}
-                  {transactions.map((tx) => (
-                    <div key={tx.id} className="activity-row">
-                      <div className={`activity-dot activity-dot--${tx.type === "checkout" ? "out" : "in"}`} />
-                      <div>
-                        <div className="activity-text">
-                          <strong>{tx.type === "checkout" ? "Check Out" : "Check In"}</strong>
-                          {" — "}Qty {tx.quantity} · User #{tx.user_id}
+                  {transactions.map((tx) => {
+                    const isCheckoutTx = tx.type === "checkout";
+                    const typeLabel = isCheckoutTx ? "Check Out" : "Check In";
+                    return (
+                      <div key={tx.id} className="activity-row">
+                        <div className={`activity-dot activity-dot--${isCheckoutTx ? "out" : "in"}`} />
+                        <div>
+                          <div className="activity-text">
+                            <strong>{typeLabel}</strong>
+                            {" — "}
+                            {tx.user_name ?? `User #${tx.user_id}`}
+                            {tx.unit_asset_code && (
+                              <>
+                                {" · "}
+                                <span style={{ fontFamily: "var(--font-mono)", color: "var(--color-primary)", fontSize: "12px" }}>
+                                  {tx.unit_asset_code}
+                                </span>
+                              </>
+                            )}
+                            {tx.quantity > 1 && (
+                              <span style={{ color: "var(--color-muted)", fontSize: "12px" }}> · Qty {tx.quantity}</span>
+                            )}
+                          </div>
+                          <div className="activity-time">{new Date(tx.created_at).toLocaleString()}</div>
+                          {isCheckoutTx && tx.due_date && (
+                            <div style={{ color: "var(--color-muted)", fontSize: "12px", marginTop: "3px" }}>
+                              Due {new Date(tx.due_date).toLocaleDateString()}
+                              {tx.returned_at && (
+                                <span style={{ color: "#16a34a" }}> · Returned {new Date(tx.returned_at).toLocaleDateString()}</span>
+                              )}
+                            </div>
+                          )}
+                          {tx.condition_on_return && (
+                            <div style={{ color: "var(--color-muted)", fontSize: "12px", marginTop: "3px", textTransform: "capitalize" }}>
+                              Returned as: {tx.condition_on_return.replace(/_/g, " ")}
+                            </div>
+                          )}
+                          {tx.notes && (
+                            <div style={{ color: "var(--color-muted)", fontSize: "12px", fontStyle: "italic", marginTop: "3px" }}>
+                              {tx.notes}
+                            </div>
+                          )}
                         </div>
-                        <div className="activity-time">{new Date(tx.created_at).toLocaleString()}</div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
-              </div>
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              <div className="panel">
-                <div className="panel-head"><h3>QR Code</h3></div>
-                <QRCodeDisplay item={item} />
               </div>
             </div>
           </div>
 
           {/* Physical Units Section */}
+          {item.track_units && (
           <div className="panel">
             <div className="panel-head">
               <h3>Physical Units ({units.length})</h3>
@@ -445,10 +503,10 @@ export default function ItemDetail() {
                             <button className='row-btn' onClick={() => setQrUnit(unit)}>QR</button>
                             <button className="row-btn" onClick={() => { setEditingUnitId(unit.id); setEditUnitForm({ serial_number: unit.serial_number || "", condition: unit.condition, location_id: unit.location_id || "", notes: unit.notes || "" }); }}>Edit</button>
                             {unit.status === "available" && (
-                              <button className="row-btn row-btn--primary" onClick={() => { setCheckoutUnitId(unit.id); setUnitActionForm({ user_id: "", condition_on_return: "good", notes: "", due_date: "" }); }}>Out</button>
+                              <button className="row-btn row-btn--primary" onClick={() => { setCheckoutUnitId(unit.id); setUnitActionForm({ user_id: "", damaged: false, notes: "", due_date: "" }); }}>Out</button>
                             )}
                             {unit.status === "checked_out" && (
-                              <button className="row-btn" onClick={() => { setCheckinUnitId(unit.id); setUnitActionForm({ user_id: "", condition_on_return: "good", notes: "", due_date: "" }); }}>In</button>
+                              <button className="row-btn" onClick={() => { setCheckinUnitId(unit.id); setUnitActionForm({ user_id: "", damaged: false, notes: "", due_date: "" }); }}>In</button>
                             )}
                             <button className="row-btn" style={{ color: "#dc2626" }} onClick={() => deleteUnit(unit.id)}>Del</button>
                           </div>
@@ -460,6 +518,7 @@ export default function ItemDetail() {
               </table>
             </div>
           </div>
+          )}
         </div>
       </div>
 
@@ -519,21 +578,18 @@ export default function ItemDetail() {
               <p style={{ color: "var(--color-muted)", fontSize: "13px", marginTop: "4px" }}>Held by: {unit?.current_holder_name || "—"}</p>
               <div className="form-grid" style={{ marginTop: "12px" }}>
                 <div className="form-group wide">
-                  <label className="form-label">Condition on Return</label>
-                  <select className="form-select" value={unitActionForm.condition_on_return}
-                    onChange={(e) => setUnitActionForm((f) => ({ ...f, condition_on_return: e.target.value }))}>
-                    <option value="excellent">Excellent</option>
-                    <option value="good">Good</option>
-                    <option value="fair">Fair</option>
-                    <option value="poor">Poor</option>
-                    <option value="needs_inspection">Needs Inspection</option>
-                    <option value="damaged">Damaged</option>
-                  </select>
-                </div>
-                <div className="form-group wide">
                   <label className="form-label">Notes</label>
                   <textarea className="form-textarea" rows={2} value={unitActionForm.notes}
                     onChange={(e) => setUnitActionForm((f) => ({ ...f, notes: e.target.value }))} />
+                </div>
+                <div className="form-group wide">
+                  <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }}>
+                    <input type="checkbox" checked={unitActionForm.damaged}
+                      onChange={(e) => setUnitActionForm((f) => ({ ...f, damaged: e.target.checked }))} />
+                    <span style={{ color: unitActionForm.damaged ? "#dc2626" : "inherit" }}>
+                      {unitActionForm.damaged ? "⚠ Returned damaged — will mark unit as damaged" : "Report damage"}
+                    </span>
+                  </label>
                 </div>
               </div>
               {unitError && <div className="alert">{unitError}</div>}

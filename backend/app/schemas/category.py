@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -6,6 +8,7 @@ class CategoryBase(BaseModel):
     description: str | None = None
     icon: str | None = None
     color: str | None = None
+    default_tracking: Literal["unit", "bulk"] = "unit"
 
 
 class CategoryCreate(CategoryBase):
@@ -17,6 +20,7 @@ class CategoryUpdate(BaseModel):
     description: str | None = None
     icon: str | None = None
     color: str | None = None
+    default_tracking: Literal["unit", "bulk"] | None = None
 
 
 class Category(CategoryBase):

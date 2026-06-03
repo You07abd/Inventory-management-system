@@ -4,7 +4,6 @@ export default function CheckinModal({ item, users, onClose, onSubmit }) {
   const [form, setForm] = useState({
     user_id: item?.current_holder_id || users[0]?.id || "",
     quantity: 1,
-    condition_on_return: item?.condition || "good",
     notes: ""
   });
   const [saving, setSaving] = useState(false);
@@ -24,7 +23,7 @@ export default function CheckinModal({ item, users, onClose, onSubmit }) {
       await onSubmit({
         user_id: Number(form.user_id),
         quantity: Number(form.quantity),
-        condition_on_return: form.condition_on_return || null,
+        condition_on_return: null,
         notes: form.notes || null
       });
     } finally {
@@ -53,15 +52,6 @@ export default function CheckinModal({ item, users, onClose, onSubmit }) {
         <div className="form-group">
           <label className="form-label">Quantity</label>
           <input className="form-input" type="number" min="1" max={maxQuantity} value={form.quantity} onChange={(e) => update("quantity", e.target.value)} required />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Return Condition</label>
-          <select className="form-select" value={form.condition_on_return} onChange={(e) => update("condition_on_return", e.target.value)}>
-            <option value="excellent">Excellent</option>
-            <option value="good">Good</option>
-            <option value="needs_inspection">Needs inspection</option>
-            <option value="damaged">Damaged</option>
-          </select>
         </div>
         <div className="form-group">
           <label className="form-label">Notes</label>

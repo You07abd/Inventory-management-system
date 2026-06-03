@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -19,6 +19,7 @@ class Item(Base):
     condition: Mapped[str] = mapped_column(String(80), nullable=False, default="good")
     status: Mapped[str] = mapped_column(String(80), nullable=False, default="available")
     qr_code: Mapped[str | None] = mapped_column(Text, nullable=True)
+    track_units: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     current_holder_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"), nullable=True)
     location_id: Mapped[int | None] = mapped_column(ForeignKey("locations.id"), nullable=True)

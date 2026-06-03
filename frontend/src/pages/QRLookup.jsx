@@ -15,7 +15,7 @@ export default function QRLookup() {
   const [unit, setUnit] = useState(null);
   const [users, setUsers] = useState([]);
   const [actionOpen, setActionOpen] = useState(null);
-  const [actionForm, setActionForm] = useState({ user_id: "", condition_on_return: "good", notes: "", due_date: "" });
+  const [actionForm, setActionForm] = useState({ user_id: "", damaged: false, notes: "", due_date: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -53,7 +53,7 @@ export default function QRLookup() {
       const refreshed = await unitsApi.getByAssetCode(unit.asset_code);
       setUnit(refreshed);
       setActionOpen(null);
-      setActionForm({ user_id: "", condition_on_return: "good", notes: "", due_date: "" });
+      setActionForm({ user_id: "", damaged: false, notes: "", due_date: "" });
     } catch (err) {
       setError(getErrorMessage(err));
     }
@@ -64,13 +64,16 @@ export default function QRLookup() {
     try {
       await unitsApi.checkin(unit.id, {
         user_id: unit.current_holder_id,
-        condition_on_return: actionForm.condition_on_return,
+        condition_on_return: actionForm.damaged ? "damaged" : null,
         notes: actionForm.notes || null,
       });
+      if (actionForm.damaged) {
+        await unitsApi.update(unit.id, { condition: "damaged" });
+      }
       const refreshed = await unitsApi.getByAssetCode(unit.asset_code);
       setUnit(refreshed);
       setActionOpen(null);
-      setActionForm({ user_id: "", condition_on_return: "good", notes: "", due_date: "" });
+      setActionForm({ user_id: "", damaged: false, notes: "", due_date: "" });
     } catch (err) {
       setError(getErrorMessage(err));
     }
@@ -216,21 +219,18 @@ export default function QRLookup() {
             <p style={{ fontWeight: 600 }}>{unit?.asset_code}</p>
             <div className="form-grid" style={{ marginTop: "12px" }}>
               <div className="form-group wide">
-                <label className="form-label">Condition on Return</label>
-                <select className="form-select" value={actionForm.condition_on_return}
-                  onChange={(e) => setActionForm((f) => ({ ...f, condition_on_return: e.target.value }))}>
-                  <option value="excellent">Excellent</option>
-                  <option value="good">Good</option>
-                  <option value="fair">Fair</option>
-                  <option value="poor">Poor</option>
-                  <option value="needs_inspection">Needs Inspection</option>
-                  <option value="damaged">Damaged</option>
-                </select>
-              </div>
-              <div className="form-group wide">
                 <label className="form-label">Notes</label>
                 <textarea className="form-textarea" rows={2} value={actionForm.notes}
                   onChange={(e) => setActionForm((f) => ({ ...f, notes: e.target.value }))} />
+              </div>
+              <div className="form-group wide">
+                <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }}>
+                  <input type="checkbox" checked={actionForm.damaged}
+                    onChange={(e) => setActionForm((f) => ({ ...f, damaged: e.target.checked }))} />
+                  <span style={{ color: actionForm.damaged ? "#dc2626" : "inherit" }}>
+                    {actionForm.damaged ? "⚠ Returned damaged — will mark unit as damaged" : "Report damage"}
+                  </span>
+                </label>
               </div>
             </div>
             <div className="modal-actions">

@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { getErrorMessage } from "../../api/client";
 import { itemsApi } from "../../api/items";
 import { categoriesApi } from "../../api/categories";
+import { locationsApi } from "../../api/locations";
 import { usersApi } from "../../api/users";
 import { unitsApi } from "../../api/units";
 import { getCategoryMeta, UNCATEGORIZED_CATEGORY } from "../../utils/categoryMeta.jsx";
@@ -19,6 +20,7 @@ const UNCATEGORIZED_META = getCategoryMeta(UNCATEGORIZED_CATEGORY);
 export default function CheckInMode() {
   const [allItems, setAllItems] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [locations, setLocations] = useState([]);
   const [users, setUsers] = useState([]);
   const [checkedOutUnits, setCheckedOutUnits] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +36,15 @@ export default function CheckInMode() {
   const [ciGridDir, setCiGridDir] = useState(null);
   const [ciSelectedCat, setCiSelectedCat] = useState(null);
   const [ciSelectedItem, setCiSelectedItem] = useState(null);
+  const [listCategoryFilter, setListCategoryFilter] = useState(null);
+  const [locationFilter, setLocationFilter] = useState(null);
+  const [conditionFilter, setConditionFilter] = useState("");
+  const [bulkReturnItem, setBulkReturnItem] = useState(null);
+  const [bulkReturnQty, setBulkReturnQty] = useState(1);
+  const [bulkReturnUserId, setBulkReturnUserId] = useState("");
+  const [bulkReturnError, setBulkReturnError] = useState(null);
+  const [bulkReturnSubmitting, setBulkReturnSubmitting] = useState(false);
+  const [damagedReported, setDamagedReported] = useState(new Set());
 
   useEffect(() => {
     let active = true;
@@ -42,9 +53,10 @@ export default function CheckInMode() {
       setLoading(true);
       setLoadError(null);
       try {
-        const [items, loadedCategories, loadedUsers] = await Promise.all([
+        const [items, loadedCategories, loadedLocations, loadedUsers] = await Promise.all([
           itemsApi.list({ limit: 500 }),
           categoriesApi.list(),
+          locationsApi.list(),
           usersApi.list(),
         ]);
         const allUnits = await Promise.all(
@@ -54,6 +66,7 @@ export default function CheckInMode() {
         if (!active) return;
         setAllItems(items);
         setCategories(loadedCategories);
+        setLocations(loadedLocations);
         setUsers(loadedUsers);
         setCheckedOutUnits(flatUnits);
       } catch (err) {
@@ -70,7 +83,7 @@ export default function CheckInMode() {
   const holderMap = useMemo(() => Object.fromEntries(users.map((u) => [u.id, u.name])), [users]);
   const itemById = (id) => allItems.find((i) => i.id === id);
   const itemName = (id) => itemById(id)?.name ?? "";
-  const filtered = useMemo(() => {
+  const searchFiltered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return checkedOutUnits;
     return checkedOutUnits.filter((u) =>
@@ -79,6 +92,17 @@ export default function CheckInMode() {
       (u.serial_number || "").toLowerCase().includes(q)
     );
   }, [checkedOutUnits, query, allItems]);
+  const filtered = useMemo(() => {
+    return searchFiltered.filter((unit) => {
+      const itemCategoryId = allItems.find((i) => i.id === unit.item_id)?.category_id ?? null;
+      if (listCategoryFilter === "uncategorized" && itemCategoryId != null) return false;
+      if (listCategoryFilter !== null && listCategoryFilter !== "uncategorized" && itemCategoryId !== listCategoryFilter) return false;
+      if (locationFilter !== null && unit.location_id !== locationFilter) return false;
+      if (conditionFilter && unit.condition !== conditionFilter) return false;
+      return true;
+    });
+  }, [searchFiltered, allItems, listCategoryFilter, locationFilter, conditionFilter]);
+  const listUncategorizedCount = searchFiltered.filter((unit) => (allItems.find((i) => i.id === unit.item_id)?.category_id ?? null) == null).length;
   const cartItemIds = useMemo(() => new Set(returnCart.map((r) => r.unit.id)), [returnCart]);
   const catsWithCheckedOut = useMemo(
     () => new Set(checkedOutUnits.map((u) => allItems.find((i) => i.id === u.item_id)?.category_id ?? null)),
@@ -97,6 +121,29 @@ export default function CheckInMode() {
     () => checkedOutUnits.filter((u) => u.item_id === ciSelectedItem?.id),
     [checkedOutUnits, ciSelectedItem]
   );
+  const bulkItems = useMemo(
+    () => allItems.filter((i) => !i.track_units && i.available_quantity < i.quantity),
+    [allItems]
+  );
+
+  async function handleBulkReturn() {
+    if (!bulkReturnUserId || bulkReturnQty < 1) return;
+    setBulkReturnSubmitting(true);
+    setBulkReturnError(null);
+    try {
+      await itemsApi.checkin(bulkReturnItem.id, {
+        user_id: Number(bulkReturnUserId),
+        quantity: bulkReturnQty,
+      });
+      setBulkReturnItem(null);
+      const refreshedItems = await itemsApi.list({ limit: 500 });
+      setAllItems(refreshedItems);
+    } catch (err) {
+      setBulkReturnError(getErrorMessage(err));
+    } finally {
+      setBulkReturnSubmitting(false);
+    }
+  }
 
   function switchCiView(mode) {
     setViewMode(mode);
@@ -104,19 +151,18 @@ export default function CheckInMode() {
     setCiGridDir("forward");
     setCiSelectedCat(null);
     setCiSelectedItem(null);
+    setListCategoryFilter(null);
+    setLocationFilter(null);
+    setConditionFilter("");
   }
 
   function addToReturnCart(unit) {
     if (!unit.current_holder_id || cartItemIds.has(unit.id)) return;
-    setReturnCart((prev) => [...prev, { unit, condition: "good" }]);
+    setReturnCart((prev) => [...prev, { unit }]);
   }
 
   function removeFromReturnCart(unitId) {
     setReturnCart((prev) => prev.filter((r) => r.unit.id !== unitId));
-  }
-
-  function updateCartCondition(unitId, val) {
-    setReturnCart((prev) => prev.map((r) => r.unit.id === unitId ? { ...r, condition: val } : r));
   }
 
   async function handleSubmit(e) {
@@ -133,7 +179,7 @@ export default function CheckInMode() {
       try {
         await unitsApi.checkin(row.unit.id, {
           user_id: row.unit.current_holder_id,
-          condition_on_return: row.condition,
+          condition_on_return: null,
           notes: notes || null,
         });
         returned.push(row.unit);
@@ -181,41 +227,172 @@ export default function CheckInMode() {
           {viewMode === "grid" && query.trim() && (
             <div style={{ color: "var(--color-muted)", fontSize: "12.5px", padding: "12px 14px 0" }}>Clear search to browse by category</div>
           )}
-          <div className="table-wrap">
-            <table className="inv-table">
-              <thead>
-                <tr>
-                  <th style={{ width: "4px", padding: 0 }} />
-                  <th><div style={{ padding: "9px 14px" }}>Code</div></th>
-                  <th><div style={{ padding: "9px 14px" }}>Model</div></th>
-                  <th><div style={{ padding: "9px 14px" }}>Held By</div></th>
-                  <th><div style={{ padding: "9px 14px" }}>Condition</div></th>
-                  <th><div style={{ padding: "9px 14px" }}>Action</div></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((unit) => (
-                  <tr key={unit.id} data-status="out">
-                    <td className="inv-table__accent" />
-                    <td><span className="asset-code">{unit.asset_code}</span></td>
-                    <td>{itemName(unit.item_id)}</td>
-                    <td style={{ color: "var(--color-muted)", fontSize: "13px" }}>{holderMap[unit.current_holder_id] ?? unit.current_holder_name ?? "—"}</td>
-                    <td>{unit.condition?.replace(/_/g, " ")}</td>
-                    <td>
-                      {cartItemIds.has(unit.id)
-                        ? <button className="row-btn" disabled style={{ opacity: 0.5 }}>Added</button>
-                        : !unit.current_holder_id
-                          ? <button className="row-btn" disabled style={{ opacity: 0.5 }}>No holder</button>
-                          : <button className="row-btn row-btn--primary" onClick={() => addToReturnCart(unit)}>Return</button>}
-                    </td>
-                  </tr>
-                ))}
-                {filtered.length === 0 && <tr><td colSpan={6}><div className="empty-state">No units found.</div></td></tr>}
-              </tbody>
-            </table>
+          <div className="inv-layout">
+            <aside className="inv-filter-panel">
+              <div className="inv-filter-section">
+                <div className="inv-filter-title">Category</div>
+                <button
+                  type="button"
+                  className={`inv-filter-btn ${listCategoryFilter === null ? "inv-filter-btn--active" : ""}`}
+                  onClick={() => setListCategoryFilter(null)}
+                >
+                  All
+                  <span className="inv-filter-count">{searchFiltered.length}</span>
+                </button>
+                {listUncategorizedCount > 0 && (
+                  <button
+                    type="button"
+                    className={`inv-filter-btn ${listCategoryFilter === "uncategorized" ? "inv-filter-btn--active" : ""}`}
+                    onClick={() => setListCategoryFilter(listCategoryFilter === "uncategorized" ? null : "uncategorized")}
+                  >
+                    <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: UNCATEGORIZED_META.color, flexShrink: 0 }} />
+                    Uncategorized
+                    <span className="inv-filter-count">{listUncategorizedCount}</span>
+                  </button>
+                )}
+                {categories.map((cat) => {
+                  const meta = getCategoryMeta(cat);
+                  const count = searchFiltered.filter((unit) => (allItems.find((i) => i.id === unit.item_id)?.category_id ?? null) === cat.id).length;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      className={`inv-filter-btn ${listCategoryFilter === cat.id ? "inv-filter-btn--active" : ""}`}
+                      onClick={() => setListCategoryFilter(listCategoryFilter === cat.id ? null : cat.id)}
+                    >
+                      <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: meta.color, flexShrink: 0 }} />
+                      {cat.name}
+                      <span className="inv-filter-count">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="inv-filter-section">
+                <div className="inv-filter-title">Location</div>
+                <button
+                  type="button"
+                  className={`inv-filter-btn ${locationFilter === null ? "inv-filter-btn--active" : ""}`}
+                  onClick={() => setLocationFilter(null)}
+                >
+                  All
+                  <span className="inv-filter-count">{searchFiltered.length}</span>
+                </button>
+                {locations.map((loc) => {
+                  const count = searchFiltered.filter((unit) => unit.location_id === loc.id).length;
+                  return (
+                    <button
+                      key={loc.id}
+                      type="button"
+                      className={`inv-filter-btn ${locationFilter === loc.id ? "inv-filter-btn--active" : ""}`}
+                      onClick={() => setLocationFilter(locationFilter === loc.id ? null : loc.id)}
+                    >
+                      {loc.name}
+                      <span className="inv-filter-count">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="inv-filter-section">
+                <div className="inv-filter-title">Condition</div>
+                <select
+                  className="table-filter"
+                  style={{ width: "100%" }}
+                  value={conditionFilter}
+                  onChange={(e) => setConditionFilter(e.target.value)}
+                >
+                  <option value="">All conditions</option>
+                  {CONDITIONS.map((condition) => (
+                    <option key={condition.value} value={condition.value}>{condition.label}</option>
+                  ))}
+                </select>
+              </div>
+            </aside>
+
+            <main>
+              <div className="table-wrap">
+                <table className="inv-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: "4px", padding: 0 }} />
+                      <th><div style={{ padding: "9px 14px" }}>Code</div></th>
+                      <th><div style={{ padding: "9px 14px" }}>Model</div></th>
+                      <th><div style={{ padding: "9px 14px" }}>Held By</div></th>
+                      <th><div style={{ padding: "9px 14px" }}>Condition</div></th>
+                      <th><div style={{ padding: "9px 14px" }}>Action</div></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((unit) => (
+                      <tr key={unit.id} data-status="out">
+                        <td className="inv-table__accent" />
+                        <td><span className="asset-code">{unit.asset_code}</span></td>
+                        <td>{itemName(unit.item_id)}</td>
+                        <td style={{ color: "var(--color-muted)", fontSize: "13px" }}>{holderMap[unit.current_holder_id] ?? unit.current_holder_name ?? "—"}</td>
+                        <td>{unit.condition?.replace(/_/g, " ")}</td>
+                        <td>
+                          {cartItemIds.has(unit.id)
+                            ? <button className="row-btn" disabled style={{ opacity: 0.5 }}>Added</button>
+                            : !unit.current_holder_id
+                              ? <button className="row-btn" disabled style={{ opacity: 0.5 }}>No holder</button>
+                              : <button className="row-btn row-btn--primary" onClick={() => addToReturnCart(unit)}>Return</button>}
+                        </td>
+                      </tr>
+                    ))}
+                    {filtered.length === 0 && <tr><td colSpan={6}><div className="empty-state">No units found.</div></td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </main>
           </div>
+          {bulkItems.length > 0 && (
+            <div style={{ borderTop: "1px solid var(--color-border-light)", padding: "12px 14px" }}>
+              <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-muted)", marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Bulk Items
+              </div>
+              <table className="inv-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: "4px", padding: 0 }} />
+                    <th><div style={{ padding: "9px 14px" }}>Code</div></th>
+                    <th><div style={{ padding: "9px 14px" }}>Name</div></th>
+                    <th><div style={{ padding: "9px 14px" }}>Out</div></th>
+                    <th><div style={{ padding: "9px 14px" }}>Action</div></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bulkItems.map((item) => {
+                    const checkedOutQty = item.quantity - item.available_quantity;
+                    return (
+                      <tr key={item.id} data-status="out">
+                        <td className="inv-table__accent" />
+                        <td><span className="asset-code">{item.asset_code}</span></td>
+                        <td>{item.name}</td>
+                        <td style={{ color: "var(--color-muted)", fontSize: "13px" }}>{checkedOutQty} of {item.quantity}</td>
+                        <td>
+                          <button
+                            className="row-btn row-btn--primary"
+                            style={{ background: "#059669", borderColor: "#059669" }}
+                            onClick={() => {
+                              setBulkReturnItem(item);
+                              setBulkReturnQty(checkedOutQty);
+                              setBulkReturnUserId("");
+                              setBulkReturnError(null);
+                            }}
+                          >
+                            Return
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      ) : checkedOutUnits.length === 0 ? (
+      ) : checkedOutUnits.length === 0 && bulkItems.length === 0 ? (
         <div className="empty-state">No units are currently checked out.</div>
       ) : ciGridPage === "categories" ? (
         <div className={`panel${ciGridDir ? ` grid-panel--${ciGridDir}` : ""}`}>
@@ -339,8 +516,7 @@ export default function CheckInMode() {
                 <tr>
                   <th><div style={{ padding: "9px 14px" }}>Asset Code</div></th>
                   <th><div style={{ padding: "9px 14px" }}>Model</div></th>
-                  <th><div style={{ padding: "9px 14px" }}>Qty Out</div></th>
-                  <th><div style={{ padding: "9px 14px" }}>Condition</div></th>
+                  <th><div style={{ padding: "9px 14px" }}>Held By</div></th>
                   <th><div style={{ padding: "9px 14px" }}>Remove</div></th>
                 </tr>
               </thead>
@@ -349,15 +525,8 @@ export default function CheckInMode() {
                   <tr key={row.unit.id}>
                     <td><span className="asset-code" style={{ color: "#059669" }}>{row.unit.asset_code}</span></td>
                     <td>{itemName(row.unit.item_id)}</td>
-                    <td>1</td>
-                    <td>
-                      <select className="form-select" value={row.condition}
-                        onChange={(e) => updateCartCondition(row.unit.id, e.target.value)}
-                        style={{ padding: "5px 8px", fontSize: "13px" }}>
-                        {CONDITIONS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-                      </select>
-                    </td>
-                    <td><button className="row-btn" onClick={() => removeFromReturnCart(row.unit.id)}>×</button></td>
+                    <td style={{ color: "var(--color-muted)", fontSize: "13px" }}>{holderMap[row.unit.current_holder_id] ?? row.unit.current_holder_name ?? "—"}</td>
+                    <td><button type="button" className="row-btn" onClick={() => removeFromReturnCart(row.unit.id)}>×</button></td>
                   </tr>
                 ))}
               </tbody>
@@ -393,9 +562,23 @@ export default function CheckInMode() {
                 <h3 style={{ color: "#065f46" }}>Returned — {receipt.returned.length} {receipt.returned.length === 1 ? "unit" : "units"}</h3>
               </div>
               <div className="panel-body">
-                <ul style={{ margin: 0, padding: "0 0 0 18px" }}>
+                <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
                   {receipt.returned.map((unit) => (
-                    <li key={unit.id}><span className="asset-code" style={{ marginRight: "8px" }}>{unit.asset_code}</span>{itemName(unit.item_id)}</li>
+                    <li key={unit.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "4px 0" }}>
+                      <span className="asset-code" style={{ marginRight: "4px" }}>{unit.asset_code}</span>
+                      <span style={{ flex: 1 }}>{itemName(unit.item_id)}</span>
+                      {damagedReported.has(unit.id) ? (
+                        <span style={{ fontSize: "11px", color: "#dc2626", fontWeight: 600 }}>⚠ Damaged</span>
+                      ) : (
+                        <button type="button" className="row-btn" style={{ fontSize: "11px", color: "var(--color-muted)" }}
+                          onClick={async () => {
+                            await unitsApi.update(unit.id, { condition: "damaged" });
+                            setDamagedReported((prev) => new Set([...prev, unit.id]));
+                          }}>
+                          Report Damage
+                        </button>
+                      )}
+                    </li>
                   ))}
                 </ul>
               </div>
@@ -417,6 +600,57 @@ export default function CheckInMode() {
             </div>
           )}
         </>
+      )}
+      {bulkReturnItem && (
+        <div className="modal-backdrop" onClick={() => setBulkReturnItem(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Return Bulk Item</h2>
+              <button type="button" className="modal-close" onClick={() => setBulkReturnItem(null)}>×</button>
+            </div>
+            <p style={{ fontWeight: 600 }}>{bulkReturnItem.name}</p>
+            <p style={{ color: "var(--color-muted)", fontSize: "13px", marginBottom: "12px" }}>
+              {bulkReturnItem.quantity - bulkReturnItem.available_quantity} units currently out
+            </p>
+            <div className="form-grid">
+              <div className="form-group">
+                <label className="form-label">Returning User *</label>
+                <select className="form-select" value={bulkReturnUserId} onChange={(e) => setBulkReturnUserId(e.target.value)}>
+                  <option value="">Select user</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Quantity Returning</label>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <button type="button" className="btn btn-secondary" style={{ padding: "6px 12px", fontWeight: 700 }}
+                    onClick={() => setBulkReturnQty((q) => Math.max(1, q - 1))}>−</button>
+                  <input className="form-input" type="number" min={1}
+                    max={bulkReturnItem.quantity - bulkReturnItem.available_quantity}
+                    value={bulkReturnQty}
+                    onChange={(e) => setBulkReturnQty(Math.max(1, Math.min(bulkReturnItem.quantity - bulkReturnItem.available_quantity, Number(e.target.value))))}
+                    style={{ width: "60px", textAlign: "center" }} />
+                  <button type="button" className="btn btn-secondary" style={{ padding: "6px 12px", fontWeight: 700 }}
+                    onClick={() => setBulkReturnQty((q) => Math.min(bulkReturnItem.quantity - bulkReturnItem.available_quantity, q + 1))}>+</button>
+                </div>
+              </div>
+            </div>
+            {bulkReturnError && <div className="alert" style={{ marginTop: "8px" }}>{bulkReturnError}</div>}
+            <div className="modal-actions">
+              <button type="button" className="btn btn-secondary" onClick={() => setBulkReturnItem(null)}>Cancel</button>
+              <button
+                className="btn btn-primary"
+                style={{ background: "#059669", borderColor: "#059669" }}
+                disabled={!bulkReturnUserId || bulkReturnSubmitting}
+                onClick={handleBulkReturn}
+              >
+                {bulkReturnSubmitting ? "Returning..." : `Return ${bulkReturnQty} Unit${bulkReturnQty !== 1 ? "s" : ""}`}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
