@@ -68,7 +68,7 @@ def seed():
                 "name": "DJI Matrice 300 RTK",
                 "description": "Enterprise RTK drone for inspection and mapping missions.",
                 "quantity": 2, "available_quantity": 2,
-                "condition": "excellent", "status": "available",
+                "condition": "good", "status": "available",
                 "category_id": cat_drones.id, "location_id": loc_cage_a.id,
             },
             {
@@ -76,7 +76,7 @@ def seed():
                 "name": "DJI Matrice 30T",
                 "description": "Compact enterprise drone with thermal + zoom camera built-in.",
                 "quantity": 1, "available_quantity": 1,
-                "condition": "excellent", "status": "available",
+                "condition": "good", "status": "available",
                 "category_id": cat_drones.id, "location_id": loc_cage_a.id,
             },
             {
@@ -117,7 +117,7 @@ def seed():
                 "name": "Zenmuse P1 Full-Frame Camera",
                 "description": "45MP full-frame mapping payload for photogrammetry labs.",
                 "quantity": 1, "available_quantity": 1,
-                "condition": "excellent", "status": "available",
+                "condition": "good", "status": "available",
                 "category_id": cat_cameras.id, "location_id": loc_cabinet.id,
             },
             # Batteries & Power
@@ -134,7 +134,7 @@ def seed():
                 "name": "DJI BS60 Charging Station",
                 "description": "Multi-battery charging hub, charges up to 4 TB60s simultaneously.",
                 "quantity": 1, "available_quantity": 1,
-                "condition": "excellent", "status": "available",
+                "condition": "good", "status": "available",
                 "category_id": cat_batteries.id, "location_id": loc_charging.id,
             },
             {
@@ -151,7 +151,7 @@ def seed():
                 "name": "DJI Smart Controller Enterprise",
                 "description": "Bright-screen controller with built-in Android for M300 RTK.",
                 "quantity": 2, "available_quantity": 2,
-                "condition": "excellent", "status": "available",
+                "condition": "good", "status": "available",
                 "category_id": cat_controllers.id, "location_id": loc_cabinet.id,
             },
             {

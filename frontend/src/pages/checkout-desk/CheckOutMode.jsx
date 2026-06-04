@@ -153,7 +153,7 @@ export default function CheckOutMode() {
     setGridPage("units");
     setLoadingUnits(true);
     unitsApi.listByItem(item.id).then((data) => {
-      setItemUnits(data.filter((u) => u.status === "available" && !cartItemIds.has(u.id)));
+      setItemUnits(data.filter((u) => u.status === "available"));
       setLoadingUnits(false);
     }).catch(() => setLoadingUnits(false));
   }
@@ -206,7 +206,6 @@ export default function CheckOutMode() {
 
   function addUnitToCart(unit) {
     setUnitCart((prev) => [...prev, { unit }]);
-    setItemUnits((prev) => prev.filter((u) => u.id !== unit.id));
   }
 
   function removeUnitFromCart(unitId) {
@@ -240,7 +239,7 @@ export default function CheckOutMode() {
     if (item.track_units === false) return; // bulk — no units to fetch
     setLoadingExpanded(true);
     unitsApi.listByItem(item.id).then((data) => {
-      setExpandedUnits(data.filter((u) => u.status === "available" && !cartItemIds.has(u.id)));
+      setExpandedUnits(data.filter((u) => u.status === "available"));
       setLoadingExpanded(false);
     }).catch(() => setLoadingExpanded(false));
   }
@@ -745,7 +744,7 @@ export default function CheckOutMode() {
               const chipLabel = reason === "Damaged" ? "Damaged" : fullyOut ? "Out" : partial ? "Partial" : "Available";
               return (
                 <div key={item.id} className="inv-card" onClick={() => {
-                  if (item.available_quantity > 0 && item.condition === "good") {
+                  if (!itemDisabledReason(item)) {
                     if (item.track_units === false) {
                       setFungibleItem(item);
                       setFungibleQty(1);
@@ -782,24 +781,36 @@ export default function CheckOutMode() {
             <div className="empty-state">No available units for this model.</div>
           ) : (
             <div className="inv-grid">
-              {itemUnits.map((unit) => (
-                <div key={unit.id} className="inv-card" style={{ cursor: "pointer" }} onClick={() => { setPendingCartItem(unit); }}>
-                  <div className="inv-card__header">
-                    <span className="inv-card__code">{unit.asset_code}</span>
-                    <span className="inv-card__chip inv-card__chip--available">Available</span>
+              {itemUnits.map((unit) => {
+                const inCart = cartItemIds.has(unit.id);
+                return (
+                  <div key={unit.id} className="inv-card"
+                       style={{ cursor: inCart ? "default" : "pointer", opacity: inCart ? 0.55 : 1 }}
+                       onClick={() => { if (!inCart) setPendingCartItem(unit); }}>
+                    <div className="inv-card__header">
+                      <span className="inv-card__code">{unit.asset_code}</span>
+                      <span className={`inv-card__chip inv-card__chip--${inCart ? "in-cart" : "available"}`}>
+                        {inCart ? "In Cart" : "Available"}
+                      </span>
+                    </div>
+                    <div className="inv-card__name">{selectedItem?.name}</div>
+                    <div className="inv-card__meta"><span>{unit.location_name || "—"}</span></div>
+                    <div className="inv-card__footer">
+                      <span className="inv-card__stats">
+                        {unit.serial_number ? "SN: " + unit.serial_number : "No serial"}
+                        <span className="inv-card__sep"> · </span>
+                        {unit.condition.replace(/_/g, " ")}
+                      </span>
+                      {!inCart && (
+                        <button className="row-btn row-btn--primary"
+                                onClick={(e) => { e.stopPropagation(); setPendingCartItem(unit); }}>
+                          Add
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="inv-card__name">{selectedItem?.name}</div>
-                  <div className="inv-card__meta"><span>{unit.location_name || "—"}</span></div>
-                  <div className="inv-card__footer">
-                    <span className="inv-card__stats">
-                      {unit.serial_number ? "SN: " + unit.serial_number : "No serial"}
-                      <span className="inv-card__sep"> · </span>
-                      {unit.condition.replace(/_/g, " ")}
-                    </span>
-                    <button className="row-btn row-btn--primary" onClick={(e) => { e.stopPropagation(); setPendingCartItem(unit); }}>Add</button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
