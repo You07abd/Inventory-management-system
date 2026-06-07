@@ -72,14 +72,22 @@ Choose your platform:
 
 ### Database Options
 
-The backend connects to PostgreSQL via a `DATABASE_URL` environment variable. You can use either:
+The backend connects to PostgreSQL via a `DATABASE_URL` environment variable.
 
-| Option | When to use |
-|---|---|
-| **Local (Docker)** | Demo, development, offline work — no credentials needed |
-| **Remote (self-hosted)** | Shared team database, production data |
+#### Local Docker — two modes
 
-Both options work identically once `DATABASE_URL` in `backend/.env` is set. You can switch between them at any time by editing that one line.
+| Mode | Compose file | Seed data | Volume | Use when |
+|---|---|---|---|---|
+| **Test / Demo** | `docker-compose.test.yml` | Yes — run `seed.py` | `postgres_data_test` | Exploring the app with dummy data |
+| **Real / Production** | `docker-compose.yml` | No — add your own data | `postgres_data` | Entering real inventory data to keep |
+
+Both modes use the same credentials and port — `backend/.env` does not change between them. You can only run one at a time (they share port 5433). Data in each mode lives in its own separate volume so switching between them never overwrites anything.
+
+The `postgres_data` volume (real mode) persists on your laptop and can be [migrated to a server](#migrating-to-a-server) when you're ready.
+
+#### Remote (self-hosted)
+
+Point `DATABASE_URL` at any external PostgreSQL instance — useful for a shared team database or a lab server.
 
 ---
 
@@ -100,15 +108,23 @@ Both options work identically once `DATABASE_URL` in `backend/.env` is set. You 
 
 #### Step 1 — Start the database
 
-**Option A — Local database (Docker, recommended for demos)**
+**Option A — Local database (Docker)**
 
-Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) if you haven't already, then from the project root:
+Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) if you haven't already.
+
+**Test / Demo database** (dummy data — for exploring the app):
+
+```powershell
+docker compose -f docker-compose.test.yml up -d
+```
+
+**Real / Production database** (empty — add your own data):
 
 ```powershell
 docker compose up -d
 ```
 
-Copy the pre-filled local env file:
+Then copy the pre-filled local env file (same for both modes):
 
 ```powershell
 Copy-Item backend\.env.local.example backend\.env
@@ -146,13 +162,13 @@ Run migrations (creates all tables):
 alembic upgrade head
 ```
 
-Seed sample data (local DB only — skip if using a remote DB with real data):
+Seed sample data — **test/demo mode only**, skip this for the real database:
 
 ```powershell
 python seed.py
 ```
 
-> `seed.py` is idempotent — safe to run multiple times. It loads a full demo dataset: 6 categories, 5 locations, 5 users, and 20 items.
+> `seed.py` loads a full demo dataset: 6 categories, 5 locations, 5 users, and 20 items. Safe to run multiple times.
 
 Start the backend:
 
@@ -205,15 +221,28 @@ docker compose down
 
 #### Step 1 — Start the database
 
-**Option A — Local database (Docker, recommended for demos)**
+**Option A — Local database (Docker)**
 
 ```bash
 sudo apt install docker.io docker-compose-plugin   # Debian/Ubuntu
 # or follow https://docs.docker.com/engine/install/
 ```
 
+**Test / Demo database** (dummy data — for exploring the app):
+
+```bash
+docker compose -f docker-compose.test.yml up -d
+```
+
+**Real / Production database** (empty — add your own data):
+
 ```bash
 docker compose up -d
+```
+
+Then copy the pre-filled local env file (same for both modes):
+
+```bash
 cp backend/.env.local.example backend/.env
 ```
 
@@ -239,7 +268,7 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 alembic upgrade head
-python seed.py   # local DB only
+python seed.py   # test/demo mode only — skip for the real database
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -298,6 +327,32 @@ DATABASE_URL=postgresql+psycopg2://<user>:<password>@<host>:<port>/<dbname>
 
 ---
 
+## Migrating to a Server
+
+When you're ready to move your real database from your laptop to a lab server:
+
+**Step 1 — Dump the database (on your laptop):**
+
+```bash
+docker exec $(docker compose ps -q db) pg_dump -U inv_user drone_inventory > backup.sql
+```
+
+**Step 2 — Copy the dump to the server** (via scp, USB, or any file transfer):
+
+```bash
+scp backup.sql user@lab-server:/path/to/backup.sql
+```
+
+**Step 3 — Restore on the server** (after Coolify/Docker starts the DB there):
+
+```bash
+docker exec -i <postgres-container-name> psql -U inv_user drone_inventory < backup.sql
+```
+
+> The test database (`postgres_data_test` volume) is throwaway — only the real database (`postgres_data` volume, started with `docker compose up -d`) needs to be migrated.
+
+---
+
 ## Useful Commands
 
 | Task | Command (run from `backend/` with venv active) |
@@ -306,7 +361,8 @@ DATABASE_URL=postgresql+psycopg2://<user>:<password>@<host>:<port>/<dbname>
 | New migration | `alembic revision --autogenerate -m "description"` |
 | Roll back one migration | `alembic downgrade -1` |
 | Re-seed sample data | `python seed.py` |
-| Start local DB | `docker compose up -d` (from project root) |
+| Start real DB | `docker compose up -d` (from project root) |
+| Start test/demo DB | `docker compose -f docker-compose.test.yml up -d` (from project root) |
 | Stop local DB | `docker compose down` (from project root) |
 
 | Task | Command (run from `frontend/`) |
