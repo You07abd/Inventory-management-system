@@ -30,9 +30,6 @@ def on_startup():
     alembic_cfg = Config(os.path.join(os.path.dirname(__file__), "..", "alembic.ini"))
     alembic_command.upgrade(alembic_cfg, "head")
 
-    from seed import seed
-    seed()
-
 
 @app.get("/health")
 def health_check():

@@ -63,6 +63,115 @@ The backend exposes a REST API at `http://localhost:8000`. Interactive docs (Swa
 
 ---
 
+## Database Modes
+
+Three modes — pick the one that matches your situation.
+
+| Mode | Docker file | Env file | Port | DB name | Persists? |
+|---|---|---|---|---|---|
+| [1 — Test / Demo](#mode-1--test--demo) | `docker-compose.test.yml` | `backend/.env.test` | 5434 | `drone_inventory_test` | No |
+| [2 — Local Real](#mode-2--local-real) | `docker-compose.yml` | `backend/.env` | 5433 | `drone_inventory` | Yes |
+| [3 — Coolify / Production](#mode-3--coolify--production) | managed by Coolify | `backend/.env.production` | remote | your choice | Yes |
+
+---
+
+### Mode 1 — Test / Demo
+
+Throwaway database pre-loaded with dummy data. Nothing here needs to be kept — wipe and restart freely.
+
+**1. Start the container:**
+```bash
+docker compose -f docker-compose.test.yml up -d
+```
+
+**2. Point the backend at it:**
+```bash
+cp backend/.env.test backend/.env
+```
+
+**3. Apply migrations and seed dummy data** (from `backend/` with venv active):
+```bash
+source venv/bin/activate
+python -m alembic upgrade head
+python seed.py
+```
+
+> Loads 6 categories, 5 locations, 5 users, and 20 items. Safe to run multiple times.
+
+**To wipe and start fresh:**
+```bash
+docker compose -f docker-compose.test.yml down -v
+docker compose -f docker-compose.test.yml up -d
+```
+
+---
+
+### Mode 2 — Local Real
+
+Your actual inventory data. Persists in the `postgres_data` Docker volume across restarts. This is what you'll export to the server.
+
+**1. Start the container:**
+```bash
+docker compose up -d
+```
+
+**2. The `backend/.env` is already configured for this mode** — no copy needed. Verify it contains:
+```env
+DATABASE_URL=postgresql+psycopg2://inv_user:inv_pass@localhost:5433/drone_inventory
+```
+
+**3. Apply migrations** (from `backend/` with venv active):
+```bash
+source venv/bin/activate
+python -m alembic upgrade head
+```
+
+The database starts empty. Do **not** run `seed.py` — start entering your real data through the app.
+
+---
+
+### Mode 3 — Coolify / Production
+
+When you're ready to move your local data to the server.
+
+#### Step A — Export from your laptop
+
+```bash
+docker exec $(docker compose ps -q db) pg_dump -U inv_user drone_inventory > backup.sql
+```
+
+#### Step B — Copy to the server
+
+```bash
+scp backup.sql user@your-server:/path/to/backup.sql
+```
+
+#### Step C — Configure the production env file
+
+Copy the template and fill in your Coolify PostgreSQL credentials:
+```bash
+cp backend/.env.production.example backend/.env.production
+```
+
+Open `backend/.env.production` and fill in the values from your Coolify PostgreSQL service:
+```env
+DATABASE_URL=postgresql+psycopg2://<user>:<password>@<host>:<port>/<dbname>
+FRONTEND_ORIGIN=https://<your-domain>
+```
+
+You can find these credentials in the Coolify dashboard → your PostgreSQL service → **Connection details**.
+
+#### Step D — Restore on the server
+
+SSH into the server and run:
+```bash
+docker exec -i <postgres-container-name> psql -U <user> <dbname> < backup.sql
+```
+
+> Only Mode 2 data needs migrating. Mode 1 (test) is throwaway — do not export it.
+
+---
+
 ## Getting Started
 
 Choose your platform:
@@ -70,24 +179,7 @@ Choose your platform:
 - [Windows](#windows)
 - [Linux](#linux)
 
-### Database Options
-
-The backend connects to PostgreSQL via a `DATABASE_URL` environment variable.
-
-#### Local Docker — two modes
-
-| Mode | Compose file | Seed data | Volume | Use when |
-|---|---|---|---|---|
-| **Test / Demo** | `docker-compose.test.yml` | Yes — run `seed.py` | `postgres_data_test` | Exploring the app with dummy data |
-| **Real / Production** | `docker-compose.yml` | No — add your own data | `postgres_data` | Entering real inventory data to keep |
-
-Both modes use the same credentials and port — `backend/.env` does not change between them. You can only run one at a time (they share port 5433). Data in each mode lives in its own separate volume so switching between them never overwrites anything.
-
-The `postgres_data` volume (real mode) persists on your laptop and can be [migrated to a server](#migrating-to-a-server) when you're ready.
-
-#### Remote (self-hosted)
-
-Point `DATABASE_URL` at any external PostgreSQL instance — useful for a shared team database or a lab server.
+> See [Database Modes](#database-modes) above to decide which database to start before running through these steps.
 
 ---
 
@@ -108,39 +200,26 @@ Point `DATABASE_URL` at any external PostgreSQL instance — useful for a shared
 
 #### Step 1 — Start the database
 
-**Option A — Local database (Docker)**
+Follow [Database Modes](#database-modes) to decide which database to use, then:
 
-Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) if you haven't already.
-
-**Test / Demo database** (dummy data — for exploring the app):
-
+**Test / Demo (Mode 1):**
 ```powershell
 docker compose -f docker-compose.test.yml up -d
+Copy-Item backend\.env.test backend\.env
 ```
 
-**Real / Production database** (empty — add your own data):
-
+**Local Real (Mode 2):**
 ```powershell
 docker compose up -d
+# backend\.env is already configured — no copy needed
 ```
 
-Then copy the pre-filled local env file (same for both modes):
-
+**Coolify / Production (Mode 3):**
 ```powershell
-Copy-Item backend\.env.local.example backend\.env
+Copy-Item backend\.env.production.example backend\.env.production
+Copy-Item backend\.env.production backend\.env
 ```
-
-**Option B — Remote database**
-
-```powershell
-Copy-Item backend\.env.example backend\.env
-```
-
-Open `backend/.env` and fill in your credentials:
-```env
-DATABASE_URL=postgresql+psycopg2://<user>:<password>@<host>:<port>/<dbname>
-FRONTEND_ORIGIN=http://localhost:5173
-```
+Open `backend/.env` and fill in your Coolify PostgreSQL credentials.
 
 ---
 
@@ -221,42 +300,27 @@ docker compose down
 
 #### Step 1 — Start the database
 
-**Option A — Local database (Docker)**
+Follow [Database Modes](#database-modes) to decide which database to use, then:
 
+**Test / Demo (Mode 1):**
 ```bash
-sudo apt install docker.io docker-compose-plugin   # Debian/Ubuntu
-# or follow https://docs.docker.com/engine/install/
-```
-
-**Test / Demo database** (dummy data — for exploring the app):
-
-```bash
+sudo apt install docker.io docker-compose-plugin   # Debian/Ubuntu — skip if already installed
 docker compose -f docker-compose.test.yml up -d
+cp backend/.env.test backend/.env
 ```
 
-**Real / Production database** (empty — add your own data):
-
+**Local Real (Mode 2):**
 ```bash
 docker compose up -d
+# backend/.env is already configured — no copy needed
 ```
 
-Then copy the pre-filled local env file (same for both modes):
-
+**Coolify / Production (Mode 3):**
 ```bash
-cp backend/.env.local.example backend/.env
+cp backend/.env.production.example backend/.env.production
+cp backend/.env.production backend/.env
 ```
-
-**Option B — Remote database**
-
-```bash
-cp backend/.env.example backend/.env
-```
-
-Open `backend/.env` and fill in your credentials:
-```env
-DATABASE_URL=postgresql+psycopg2://<user>:<password>@<host>:<port>/<dbname>
-FRONTEND_ORIGIN=http://localhost:5173
-```
+Open `backend/.env` and fill in your Coolify PostgreSQL credentials.
 
 ---
 
@@ -313,57 +377,23 @@ docker compose down
 
 ---
 
-## Switching Databases
-
-Edit one line in `backend/.env` and restart the backend — no code changes needed:
-
-```env
-# Local Docker
-DATABASE_URL=postgresql+psycopg2://inv_user:inv_pass@localhost:5432/drone_inventory
-
-# Remote (replace with real values)
-DATABASE_URL=postgresql+psycopg2://<user>:<password>@<host>:<port>/<dbname>
-```
-
----
-
-## Migrating to a Server
-
-When you're ready to move your real database from your laptop to a lab server:
-
-**Step 1 — Dump the database (on your laptop):**
-
-```bash
-docker exec $(docker compose ps -q db) pg_dump -U inv_user drone_inventory > backup.sql
-```
-
-**Step 2 — Copy the dump to the server** (via scp, USB, or any file transfer):
-
-```bash
-scp backup.sql user@lab-server:/path/to/backup.sql
-```
-
-**Step 3 — Restore on the server** (after Coolify/Docker starts the DB there):
-
-```bash
-docker exec -i <postgres-container-name> psql -U inv_user drone_inventory < backup.sql
-```
-
-> The test database (`postgres_data_test` volume) is throwaway — only the real database (`postgres_data` volume, started with `docker compose up -d`) needs to be migrated.
-
----
-
 ## Useful Commands
 
 | Task | Command (run from `backend/` with venv active) |
 |---|---|
-| Apply migrations | `alembic upgrade head` |
-| New migration | `alembic revision --autogenerate -m "description"` |
-| Roll back one migration | `alembic downgrade -1` |
-| Re-seed sample data | `python seed.py` |
-| Start real DB | `docker compose up -d` (from project root) |
-| Start test/demo DB | `docker compose -f docker-compose.test.yml up -d` (from project root) |
-| Stop local DB | `docker compose down` (from project root) |
+| Apply migrations | `python -m alembic upgrade head` |
+| New migration | `python -m alembic revision --autogenerate -m "description"` |
+| Roll back one migration | `python -m alembic downgrade -1` |
+| Seed dummy data (test mode only) | `python seed.py` |
+| Export local DB to file | `docker exec $(docker compose ps -q db) pg_dump -U inv_user drone_inventory > backup.sql` (from project root) |
+
+| Task | Command (run from project root) |
+|---|---|
+| Start local real DB (Mode 2) | `docker compose up -d` |
+| Start test/demo DB (Mode 1) | `docker compose -f docker-compose.test.yml up -d` |
+| Stop local real DB | `docker compose down` |
+| Stop test DB | `docker compose -f docker-compose.test.yml down` |
+| Wipe test DB completely | `docker compose -f docker-compose.test.yml down -v` |
 
 | Task | Command (run from `frontend/`) |
 |---|---|
@@ -388,6 +418,13 @@ docker exec -i <postgres-container-name> psql -U inv_user drone_inventory < back
 
 **Frontend shows network errors or blank data**
 → Make sure the backend is running on port 8000 and `VITE_API_BASE_URL=http://localhost:8000` is set in `frontend/.env`.
+
+**Port 8000 is taken by Coolify (or another service)**
+→ Coolify runs on port 8000 by default. Stop it before starting the backend:
+```bash
+docker stop coolify coolify-sentinel coolify-db coolify-redis coolify-realtime
+```
+Restart it later with `docker start coolify coolify-sentinel coolify-db coolify-redis coolify-realtime`.
 
 **`psycopg2` fails to install**
 → The project uses `psycopg2-binary` (pre-compiled). Ensure you're on Python 3.10+ and that your venv is active.

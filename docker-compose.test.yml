@@ -1,15 +1,12 @@
 services:
   db:
     image: postgres:16-alpine
-    restart: unless-stopped
+    restart: no
     environment:
       POSTGRES_USER: inv_user
       POSTGRES_PASSWORD: inv_pass
-      POSTGRES_DB: drone_inventory
+      POSTGRES_DB: drone_inventory_test
     ports:
-      - "5433:5432"
-    volumes:
-      - postgres_data_test:/var/lib/postgresql/data
+      - "5434:5432"
 
-volumes:
-  postgres_data_test:
+volumes: {}
