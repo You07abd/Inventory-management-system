@@ -9,6 +9,7 @@ class ItemBase(BaseModel):
     name: str
     description: str | None = None
     serial_number: str | None = None
+    barcode: str | None = None
     quantity: int = Field(default=1, ge=1)
     available_quantity: int | None = Field(default=None, ge=0)
     condition: str = "good"
@@ -24,6 +25,7 @@ class ItemCreate(BaseModel):
     name: str
     description: str | None = None
     serial_number: str | None = None
+    barcode: str | None = None
     quantity: int = Field(default=1, ge=1)
     available_quantity: int | None = Field(default=None, ge=0)
     condition: str = "good"
@@ -38,6 +40,7 @@ class ItemUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
     serial_number: str | None = None
+    barcode: str | None = None
     quantity: int | None = Field(default=None, ge=1)
     available_quantity: int | None = Field(default=None, ge=0)
     condition: str | None = None
@@ -53,6 +56,7 @@ class Item(ItemBase):
 
     id: int
     asset_code: str
+    barcode: str | None = None
     available_quantity: int
     track_units: bool = True
     created_at: datetime

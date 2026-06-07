@@ -10,11 +10,14 @@ import CheckoutModal from "../components/CheckoutModal.jsx";
 import ItemTable from "../components/ItemTable.jsx";
 import { useAuth } from "../context/AuthContext";
 import { getCategoryMeta, UNCATEGORIZED_CATEGORY } from "../utils/categoryMeta.jsx";
+import { barcodeApi } from "../api/barcode";
+import BarcodeScanner from "../components/BarcodeScanner.jsx";
 
 const emptyItemForm = {
   name: "",
   description: "",
   serial_number: "",
+  barcode: "",
   quantity: 1,
   condition: "good",
   category_id: "",
@@ -46,6 +49,10 @@ export default function InventoryList({ initialMode = "browse" }) {
   const [categoryFilter, setCategoryFilter] = useState(null);
   const [locationFilter, setLocationFilter] = useState(null);
   const [statusFilter,   setStatusFilter]   = useState("");
+  const [scannerMode, setScannerMode] = useState(null); // 'prefill' | 'serial' | null
+  const [scanStatus, setScanStatus] = useState(null);   // { found: bool, message: string } | null
+  const [scanLoading, setScanLoading] = useState(false);
+  const [barcodeExistingCount, setBarcodeExistingCount] = useState(0);
 
   async function load() {
     setLoading(true);
@@ -142,6 +149,8 @@ export default function InventoryList({ initialMode = "browse" }) {
   function openCreateItem() {
     setItemForm(emptyItemForm);
     setTrackingOverridden(false);
+    setScanStatus(null);
+    setBarcodeExistingCount(0);
     setError("");
     setNotice("");
     setPageMode("create");
@@ -150,8 +159,49 @@ export default function InventoryList({ initialMode = "browse" }) {
   function closeCreateItem() {
     setItemForm(emptyItemForm);
     setTrackingOverridden(false);
+    setScanStatus(null);
+    setBarcodeExistingCount(0);
     setPageMode("browse");
     navigate("/inventory", { replace: true });
+  }
+
+  async function handleScan(result) {
+    setScannerMode(null);
+
+    if (scannerMode === "serial") {
+      updateItemForm("serial_number", result.serial || result.raw);
+      return;
+    }
+
+    // prefill mode
+    setScanLoading(true);
+    setScanStatus(null);
+    try {
+      const barcodeValue = result.gtin || result.raw;
+      updateItemForm("barcode", barcodeValue);
+      if (result.serial) updateItemForm("serial_number", result.serial);
+
+      const [existing, lookupData] = await Promise.all([
+        itemsApi.list({ barcode: barcodeValue }),
+        result.gtin
+          ? barcodeApi.lookup(result.gtin)
+          : Promise.resolve({ name: null, brand: null, description: null }),
+      ]);
+
+      setBarcodeExistingCount(existing.length);
+
+      if (lookupData.name) {
+        updateItemForm("name", lookupData.name);
+        if (lookupData.description) updateItemForm("description", lookupData.description);
+        setScanStatus({ found: true, message: `${lookupData.name} found — fields prefilled` });
+      } else {
+        setScanStatus({ found: false, message: "Product not found in database — fill in manually" });
+      }
+    } catch {
+      setScanStatus({ found: false, message: "Lookup failed — fill in manually" });
+    } finally {
+      setScanLoading(false);
+    }
   }
 
   async function createItem(event) {
@@ -164,6 +214,7 @@ export default function InventoryList({ initialMode = "browse" }) {
         name: itemForm.name,
         description: itemForm.description || null,
         serial_number: itemForm.track_units ? (itemForm.serial_number || null) : null,
+        barcode: itemForm.barcode || null,
         quantity: Number(itemForm.quantity),
         condition: itemForm.condition,
         category_id: itemForm.category_id ? Number(itemForm.category_id) : null,
@@ -214,6 +265,42 @@ export default function InventoryList({ initialMode = "browse" }) {
 
           {pageMode === "create" && !isStudent ? (
             <form className="form-card" onSubmit={createItem}>
+              {/* Scan to prefill */}
+              <div style={{ marginBottom: "16px" }}>
+                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setScannerMode("prefill")}
+                    disabled={scanLoading}
+                  >
+                    {scanLoading ? "Looking up…" : "Scan Barcode to Prefill"}
+                  </button>
+                  {itemForm.barcode && (
+                    <span style={{ fontSize: "12px", color: "var(--color-muted)", fontFamily: "monospace" }}>
+                      {itemForm.barcode}
+                      <button
+                        type="button"
+                        onClick={() => { updateItemForm("barcode", ""); setScanStatus(null); setBarcodeExistingCount(0); }}
+                        style={{ marginLeft: "6px", background: "none", border: "none", cursor: "pointer", color: "var(--color-muted)" }}
+                        aria-label="Clear barcode"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  )}
+                </div>
+                {scanStatus && (
+                  <p style={{ marginTop: "6px", fontSize: "12px", color: scanStatus.found ? "var(--color-primary)" : "var(--color-muted)" }}>
+                    {scanStatus.message}
+                  </p>
+                )}
+                {barcodeExistingCount > 0 && (
+                  <p style={{ marginTop: "4px", fontSize: "12px", color: "var(--color-muted)" }}>
+                    {barcodeExistingCount} item{barcodeExistingCount !== 1 ? "s" : ""} with this product already in inventory
+                  </p>
+                )}
+              </div>
               <div className="form-grid">
                 <div className="form-group wide">
                   <label className="form-label">Tracking Mode</label>
@@ -250,7 +337,23 @@ export default function InventoryList({ initialMode = "browse" }) {
                 {itemForm.track_units && (
                   <div className="form-group">
                     <label className="form-label">Serial Number</label>
-                    <input className="form-input" value={itemForm.serial_number} onChange={(e) => updateItemForm("serial_number", e.target.value)} />
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      <input
+                        className="form-input"
+                        value={itemForm.serial_number}
+                        onChange={(e) => updateItemForm("serial_number", e.target.value)}
+                        style={{ flex: 1 }}
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => setScannerMode("serial")}
+                        title="Scan serial number barcode"
+                        style={{ padding: "0 10px", fontSize: "16px" }}
+                      >
+                        📷
+                      </button>
+                    </div>
                   </div>
                 )}
                 <div className="form-group">
@@ -547,6 +650,12 @@ export default function InventoryList({ initialMode = "browse" }) {
 
       {checkoutItem && <CheckoutModal item={checkoutItem} users={users} onClose={() => setCheckoutItem(null)} onSubmit={checkout} />}
       {checkinItem && <CheckinModal item={checkinItem} users={users} onClose={() => setCheckinItem(null)} onSubmit={checkin} />}
+      {scannerMode && (
+        <BarcodeScanner
+          onScan={handleScan}
+          onClose={() => setScannerMode(null)}
+        />
+      )}
     </>
   );
 }

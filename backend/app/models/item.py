@@ -14,6 +14,7 @@ class Item(Base):
     name: Mapped[str] = mapped_column(String(180), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     serial_number: Mapped[str | None] = mapped_column(String(150), nullable=True, index=True)
+    barcode: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     available_quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     condition: Mapped[str] = mapped_column(String(80), nullable=False, default="good")

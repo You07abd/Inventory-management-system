@@ -77,6 +77,7 @@ def list_items(
     category_id: int | None = None,
     location_id: int | None = None,
     search: str | None = None,
+    barcode: str | None = None,
     db: Session = Depends(get_db),
 ):
     query = db.query(Item)
@@ -86,6 +87,8 @@ def list_items(
         query = query.filter(Item.category_id == category_id)
     if location_id is not None:
         query = query.filter(Item.location_id == location_id)
+    if barcode is not None:
+        query = query.filter(Item.barcode == barcode)
     if search:
         term = f"%{search}%"
         query = query.filter(

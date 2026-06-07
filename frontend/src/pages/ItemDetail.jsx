@@ -551,6 +551,12 @@ export default function ItemDetail() {
                     <div className='sidebar-field-value' style={{ fontSize: '12px', color: 'var(--color-muted-2)' }}>{item.description}</div>
                   </div>
                 )}
+                {item.barcode && (
+                  <div className='sidebar-field'>
+                    <div className='sidebar-field-label'>Barcode</div>
+                    <div className='sidebar-field-value' style={{ fontFamily: 'monospace' }}>{item.barcode}</div>
+                  </div>
+                )}
               </div>
             </div>
 

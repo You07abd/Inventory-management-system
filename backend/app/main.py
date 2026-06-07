@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine
 from app.models import Category, Item, Location, Transaction, Unit, User
-from app.routers import categories, checkout, items, locations, transactions, units, users
+from app.routers import barcode, categories, checkout, items, locations, transactions, units, users
 
 
 load_dotenv()
@@ -43,5 +43,6 @@ app.include_router(items.router)
 app.include_router(units.router)
 app.include_router(transactions.router)
 app.include_router(checkout.router)
+app.include_router(barcode.router)
 
 _models = (Category, Item, Location, Transaction, Unit, User)
