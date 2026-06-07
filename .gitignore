@@ -5,6 +5,7 @@ __pycache__/
 *.pyc
 **/*.pyc
 backend/venv/
+venv/
 backend/.env
 backend/.env~
 frontend/.env
