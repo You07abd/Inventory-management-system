@@ -119,6 +119,9 @@ def create_item(payload: ItemCreate, db: Session = Depends(get_db)):
 
     asset_code = generate_asset_code(db)
     data["available_quantity"] = available_quantity
+    if data.get("track_units", True):
+        data["quantity"] = 0
+        data["available_quantity"] = 0
     item = Item(**data, asset_code=asset_code, qr_code=generate_qr_code(asset_code))
     _set_status_from_availability(item)
     db.add(item)
@@ -221,8 +224,15 @@ def update_item(item_id: int, payload: ItemUpdate, db: Session = Depends(get_db)
     proposed_available = data.get("available_quantity", item.available_quantity)
     if proposed_available > proposed_quantity:
         raise HTTPException(status_code=400, detail="available_quantity cannot exceed quantity.")
+    old_track_units = item.track_units
     for field, value in data.items():
         setattr(item, field, value)
+    if data.get("track_units") is True and not old_track_units:
+        from app.models.unit import Unit as UnitModel
+        total = db.query(UnitModel).filter(UnitModel.item_id == item.id).count()
+        available = db.query(UnitModel).filter(UnitModel.item_id == item.id, UnitModel.status == "available").count()
+        item.quantity = total
+        item.available_quantity = available
     _set_status_from_availability(item)
     db.commit()
     db.refresh(item)

@@ -10,7 +10,7 @@ class ItemBase(BaseModel):
     description: str | None = None
     serial_number: str | None = None
     barcode: str | None = None
-    quantity: int = Field(default=1, ge=1)
+    quantity: int = Field(default=0, ge=0)
     available_quantity: int | None = Field(default=None, ge=0)
     condition: str = "good"
     status: str = "available"
@@ -26,7 +26,7 @@ class ItemCreate(BaseModel):
     description: str | None = None
     serial_number: str | None = None
     barcode: str | None = None
-    quantity: int = Field(default=1, ge=1)
+    quantity: int = Field(default=0, ge=0)
     available_quantity: int | None = Field(default=None, ge=0)
     condition: str = "good"
     status: str = "available"
@@ -41,7 +41,7 @@ class ItemUpdate(BaseModel):
     description: str | None = None
     serial_number: str | None = None
     barcode: str | None = None
-    quantity: int | None = Field(default=None, ge=1)
+    quantity: int | None = Field(default=None, ge=0)
     available_quantity: int | None = Field(default=None, ge=0)
     condition: str | None = None
     status: str | None = None

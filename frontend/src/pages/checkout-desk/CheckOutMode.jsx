@@ -65,7 +65,7 @@ export default function CheckOutMode() {
           locationsApi.list(),
         ]);
         if (!active) return;
-        setAllItems(items);
+        setAllItems(items.filter((i) => i.quantity > 0));
         setUsers(loadedUsers);
         setCategories(loadedCats);
         setLocations(loadedLocations);
@@ -108,11 +108,12 @@ export default function CheckOutMode() {
   const itemName = (itemId) => allItems.find((i) => i.id === itemId)?.name ?? "";
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return allItems;
+    if (!q) return allItems.filter((i) => i.quantity > 0);
     return allItems.filter((i) =>
-      i.name.toLowerCase().includes(q) ||
-      i.asset_code.toLowerCase().includes(q) ||
-      (i.serial_number || "").toLowerCase().includes(q)
+      i.quantity > 0 &&
+      (i.name.toLowerCase().includes(q) ||
+        i.asset_code.toLowerCase().includes(q) ||
+        (i.serial_number || "").toLowerCase().includes(q))
     );
   }, [allItems, query]);
   const availableItems = useMemo(
@@ -550,7 +551,26 @@ export default function CheckOutMode() {
                                             <div className="inv-card__meta"><span>{unit.location_name || "—"}</span></div>
                                             {unit.notes && <div className="inv-card__meta" style={{ fontStyle: "italic" }}><span>{unit.notes}</span></div>}
                                             <div className="inv-card__footer">
-                                              <span className="inv-card__stats">{unit.condition.replace(/_/g, " ")}</span>
+                                              <span className="inv-card__stats">
+                                                {unit.condition !== "good" && (
+                                                  <span style={{
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    gap: "4px",
+                                                    padding: "2px 8px",
+                                                    borderRadius: "999px",
+                                                    fontSize: "11px",
+                                                    fontWeight: 700,
+                                                    letterSpacing: "0.04em",
+                                                    textTransform: "uppercase",
+                                                    background: unit.condition === "damaged" ? "#fee2e2" : "#fef3c7",
+                                                    color: unit.condition === "damaged" ? "#b91c1c" : "#92400e",
+                                                    border: `1px solid ${unit.condition === "damaged" ? "#fca5a5" : "#fcd34d"}`,
+                                                  }}>
+                                                    ⚠ {unit.condition === "damaged" ? "Damaged" : "Needs Repair"}
+                                                  </span>
+                                                )}
+                                              </span>
                                               <button className="row-btn row-btn--primary"
                                                 onClick={() => {
                                                   const parentItem = allItems.find((i) => i.id === unit.item_id);
@@ -760,7 +780,28 @@ export default function CheckOutMode() {
                   <div className="inv-card__name">{item.name}</div>
                   <div className="inv-card__meta"><span>{item.location_name || "—"}</span></div>
                   <div className="inv-card__footer">
-                    <span className="inv-card__stats">{item.available_quantity}/{item.quantity}<span className="inv-card__sep"> · </span>{item.condition.replace(/_/g, " ")}</span>
+                    <span className="inv-card__stats">
+                      {item.available_quantity}/{item.quantity}
+                      {item.condition !== "good" && (
+                        <span style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          padding: "2px 8px",
+                          borderRadius: "999px",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          letterSpacing: "0.04em",
+                          textTransform: "uppercase",
+                          marginLeft: "8px",
+                          background: item.condition === "damaged" ? "#fee2e2" : "#fef3c7",
+                          color: item.condition === "damaged" ? "#b91c1c" : "#92400e",
+                          border: `1px solid ${item.condition === "damaged" ? "#fca5a5" : "#fcd34d"}`,
+                        }}>
+                          ⚠ {item.condition === "damaged" ? "Damaged" : "Needs Repair"}
+                        </span>
+                      )}
+                    </span>
                   </div>
                 </div>
               );
@@ -798,8 +839,25 @@ export default function CheckOutMode() {
                     <div className="inv-card__footer">
                       <span className="inv-card__stats">
                         {unit.serial_number ? "SN: " + unit.serial_number : "No serial"}
-                        <span className="inv-card__sep"> · </span>
-                        {unit.condition.replace(/_/g, " ")}
+                        {unit.condition !== "good" && (
+                          <span style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            padding: "2px 8px",
+                            borderRadius: "999px",
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            letterSpacing: "0.04em",
+                            textTransform: "uppercase",
+                            marginLeft: "8px",
+                            background: unit.condition === "damaged" ? "#fee2e2" : "#fef3c7",
+                            color: unit.condition === "damaged" ? "#b91c1c" : "#92400e",
+                            border: `1px solid ${unit.condition === "damaged" ? "#fca5a5" : "#fcd34d"}`,
+                          }}>
+                            ⚠ {unit.condition === "damaged" ? "Damaged" : "Needs Repair"}
+                          </span>
+                        )}
                       </span>
                       {!inCart && (
                         <button className="row-btn row-btn--primary"

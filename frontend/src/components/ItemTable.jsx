@@ -6,6 +6,13 @@ function nameById(collection, id, fallback = "—") {
   return collection.find((e) => e.id === id)?.name || fallback;
 }
 
+function getItemStatus(item) {
+  if (item.quantity === 0) return { key: "not-in-lab", label: "Not in Lab" };
+  if (item.available_quantity === 0) return { key: "out", label: "Checked Out" };
+  if (item.available_quantity > 0 && item.available_quantity < item.quantity) return { key: "partial", label: "Partial" };
+  return { key: "available", label: "Available" };
+}
+
 const COLUMNS = [
   { key: "asset_code", label: "Asset" },
   { key: "name", label: "Name" },
@@ -42,7 +49,7 @@ export default function ItemTable({ items, categories = [], locations = [], onCh
     if (key === "category") return nameById(categories, item.category_id, "Uncategorized");
     if (key === "location") return nameById(locations, item.location_id);
     if (key === "available") return item.available_quantity;
-    if (key === "status") return item.available_quantity < item.quantity ? "checked out" : "available";
+    if (key === "status") return getItemStatus(item).label;
     return item[key] ?? "";
   }
 
@@ -76,11 +83,9 @@ export default function ItemTable({ items, categories = [], locations = [], onCh
       <tbody>
         {sorted.map((item) => {
           const checkedOut = item.quantity - item.available_quantity;
-          const partial = checkedOut > 0 && item.available_quantity > 0;
-          const fullyOut = item.available_quantity === 0;
-          const statusKey = fullyOut ? "out" : partial ? "partial" : "available";
+          const status = getItemStatus(item);
           return (
-            <tr key={item.id} data-status={statusKey}>
+            <tr key={item.id} data-status={status.key} style={{ opacity: item.quantity === 0 ? 0.5 : 1 }}>
               <td className="inv-table__accent" />
               <td>
                 <Link className="asset-code" to={`/items/${item.id}`}>{item.asset_code}</Link>
@@ -95,14 +100,29 @@ export default function ItemTable({ items, categories = [], locations = [], onCh
                 {item.available_quantity} / {item.quantity}
               </td>
               <td>
-                <span className="inv-table__condition">
-                  {item.condition.replace(/_/g, " ")}
-                </span>
+                {item.condition !== "good" && (
+                  <span style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    padding: "2px 8px",
+                    borderRadius: "999px",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    letterSpacing: "0.04em",
+                    textTransform: "uppercase",
+                    background: item.condition === "damaged" ? "#fee2e2" : "#fef3c7",
+                    color: item.condition === "damaged" ? "#b91c1c" : "#92400e",
+                    border: `1px solid ${item.condition === "damaged" ? "#fca5a5" : "#fcd34d"}`,
+                  }}>
+                    ⚠ {item.condition === "damaged" ? "Damaged" : "Needs Repair"}
+                  </span>
+                )}
               </td>
               <td>
-                <span className={`inv-table__status inv-table__status--${statusKey}`}>
+                <span className={`inv-table__status inv-table__status--${status.key}`}>
                   <span className="inv-table__dot" />
-                  {fullyOut ? "Checked Out" : partial ? "Partial" : "Available"}
+                  {status.label}
                 </span>
               </td>
               <td>

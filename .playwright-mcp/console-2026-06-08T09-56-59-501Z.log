@@ -1,0 +1,6 @@
+[     631ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=f0d4f22e:14337
+[     753ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/favicon.ico:0
+[     765ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/favicon.ico:0
+[     776ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/favicon.ico:0
+[   29249ms] [WARNING] It was not possible to play the video. AbortError: The play() request was interrupted by a new load request. https://goo.gl/LdLk22 @ http://localhost:5173/node_modules/.vite/deps/@zxing_browser.js?v=f0d4f22e:33817
+[   29273ms] [WARNING] Trying to play video that is already playing. @ http://localhost:5173/node_modules/.vite/deps/@zxing_browser.js?v=f0d4f22e:33800

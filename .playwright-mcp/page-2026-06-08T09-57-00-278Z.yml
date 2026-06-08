@@ -1,0 +1,47 @@
+- complementary [ref=e4]:
+  - generic [ref=e5]:
+    - generic [ref=e6]: DL
+    - generic [ref=e7]:
+      - generic [ref=e8]: Drone Lab
+      - generic [ref=e9]: Inventory System
+  - navigation [ref=e10]:
+    - button "Main" [expanded] [ref=e11] [cursor=pointer]:
+      - generic [ref=e12]: Main
+      - img [ref=e13]
+    - generic [ref=e16]:
+      - link "Dashboard" [ref=e17] [cursor=pointer]:
+        - /url: /
+        - img [ref=e19]
+        - generic [ref=e24]: Dashboard
+      - link "Checkout Desk" [ref=e25] [cursor=pointer]:
+        - /url: /checkout-desk
+        - img [ref=e27]
+        - generic [ref=e29]: Checkout Desk
+      - link "Inventory" [ref=e30] [cursor=pointer]:
+        - /url: /inventory
+        - img [ref=e32]
+        - generic [ref=e34]: Inventory
+      - link "Categories" [ref=e35] [cursor=pointer]:
+        - /url: /categories
+        - img [ref=e37]
+        - generic [ref=e39]: Categories
+    - button "Records" [expanded] [ref=e40] [cursor=pointer]:
+      - generic [ref=e41]: Records
+      - img [ref=e42]
+    - generic [ref=e45]:
+      - link "Transactions" [ref=e46] [cursor=pointer]:
+        - /url: /transactions
+        - img [ref=e48]
+        - generic [ref=e53]: Transactions
+      - link "QR Lookup" [ref=e54] [cursor=pointer]:
+        - /url: /qr-lookup
+        - img [ref=e56]
+        - generic [ref=e60]: QR Lookup
+  - generic [ref=e61]:
+    - generic [ref=e62]:
+      - generic [ref=e63]: "?"
+      - generic [ref=e64]:
+        - generic [ref=e65]: Unknown
+        - button "Sign out" [ref=e66] [cursor=pointer]
+    - button "Toggle sidebar" [ref=e67] [cursor=pointer]:
+      - img [ref=e68]

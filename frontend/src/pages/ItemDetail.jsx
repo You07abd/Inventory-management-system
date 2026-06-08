@@ -20,6 +20,13 @@ function conditionBadgeClass(condition) {
   return map[condition] || "badge--good";
 }
 
+function getItemStatus(item) {
+  if (item.quantity === 0) return { badgeClass: "badge--not-in-lab", label: "Not in Lab" };
+  if (item.available_quantity === 0) return { badgeClass: "badge--checked-out", label: "Checked Out" };
+  if (item.available_quantity > 0 && item.available_quantity < item.quantity) return { badgeClass: "badge--partial", label: "Partial" };
+  return { badgeClass: "badge--available", label: "Available" };
+}
+
 export default function ItemDetail() {
   const { itemId } = useParams();
   const [item, setItem] = useState(null);
@@ -198,6 +205,23 @@ export default function ItemDetail() {
     win.document.close();
   }
 
+  function printItemQR() {
+    const win = window.open('', '_blank', 'width=420,height=540');
+    win.document.write(`<!DOCTYPE html><html><head><title>QR — ${item.asset_code}</title>
+      <style>
+        body { font-family: sans-serif; text-align: center; padding: 32px; margin: 0; }
+        img { width: 220px; height: 220px; display: block; margin: 0 auto 16px; }
+        h2 { margin: 0 0 6px; font-size: 18px; font-family: monospace; }
+        p { margin: 0; color: #666; font-size: 13px; }
+      </style></head><body>
+      <img src="${item.qr_code}" alt="QR code" />
+      <h2>${item.asset_code}</h2>
+      <p>${item.name}</p>
+      <script>window.onload = function() { window.print(); };<\/script>
+      </body></html>`);
+    win.document.close();
+  }
+
   async function checkoutUnit() {
     setUnitError("");
     try {
@@ -242,7 +266,7 @@ export default function ItemDetail() {
   if (error) return <div className="alert" style={{ margin: "24px" }}>{error}</div>;
   if (!item) return <div className="empty-state" style={{ margin: "24px" }}>Item not found.</div>;
 
-  const isAvailable = checkedOut === 0;
+  const itemStatus = getItemStatus(item);
   const availableCount = units.filter((u) => u.status === 'available').length;
   const ACTIVITY_PREVIEW = 4;
   const visibleTransactions = activityExpanded ? transactions : transactions.slice(0, ACTIVITY_PREVIEW);
@@ -389,6 +413,13 @@ export default function ItemDetail() {
                         </div>
                       </div>
                       <div className='unit-row__actions'>
+                        <button
+                          className='row-btn'
+                          title='View QR code'
+                          onClick={() => { setQrUnit(unit); setOpenKebabId(null); }}
+                        >
+                          QR
+                        </button>
                         {isAvailableUnit ? (
                           <button className='row-btn row-btn--primary'
                             onClick={() => { setCheckoutUnitId(unit.id); setUnitActionForm({ user_id: '', conditionReport: '', notes: '', due_date: '' }); }}>
@@ -406,9 +437,6 @@ export default function ItemDetail() {
                             ⋯
                           </button>
                           <div className={'unit-kebab__menu' + (kebabOpen ? ' unit-kebab__menu--open' : '')}>
-                            <button className='unit-kebab__item' onClick={() => { setQrUnit(unit); setOpenKebabId(null); }}>
-                              QR Code
-                            </button>
                             <button className='unit-kebab__item' onClick={() => {
                               setEditingUnitId(unit.id);
                               setEditUnitForm({ serial_number: unit.serial_number || '', condition: unit.condition, location_id: unit.location_id || '', notes: unit.notes || '' });
@@ -540,9 +568,12 @@ export default function ItemDetail() {
                 </div>
                 <div className='sidebar-field'>
                   <div className='sidebar-field-label'>Availability</div>
-                  <div className='sidebar-field-value' style={{ fontSize: '14px', fontWeight: 700 }}>
-                    {item.available_quantity}
-                    <span style={{ color: 'var(--color-muted-2)', fontWeight: 400, fontSize: '12px' }}> of {item.quantity} available</span>
+                  <div className='sidebar-field-value' style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '14px', fontWeight: 700 }}>
+                    <span>
+                      {item.available_quantity}
+                      <span style={{ color: 'var(--color-muted-2)', fontWeight: 400, fontSize: '12px' }}> of {item.quantity} available</span>
+                    </span>
+                    <span className={`badge ${itemStatus.badgeClass}`}>{itemStatus.label}</span>
                   </div>
                 </div>
                 {item.description && (
@@ -555,6 +586,27 @@ export default function ItemDetail() {
                   <div className='sidebar-field'>
                     <div className='sidebar-field-label'>Barcode</div>
                     <div className='sidebar-field-value' style={{ fontFamily: 'monospace' }}>{item.barcode}</div>
+                  </div>
+                )}
+                {item.qr_code && (
+                  <div className='sidebar-field'>
+                    <div className='sidebar-field-label' style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      Asset QR
+                      <button
+                        className='btn btn-secondary'
+                        style={{ fontSize: '10px', padding: '2px 8px' }}
+                        onClick={printItemQR}
+                      >
+                        Print
+                      </button>
+                    </div>
+                    <div className='sidebar-field-value'>
+                      <img
+                        src={item.qr_code}
+                        alt={`QR for ${item.asset_code}`}
+                        style={{ width: '120px', height: '120px', display: 'block', marginTop: '4px' }}
+                      />
+                    </div>
                   </div>
                 )}
               </div>

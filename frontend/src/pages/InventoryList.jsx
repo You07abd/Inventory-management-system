@@ -25,6 +25,13 @@ const emptyItemForm = {
   track_units: true,
 };
 
+function getItemStatus(item) {
+  if (item.quantity === 0) return { key: "not-in-lab", label: "Not in Lab" };
+  if (item.available_quantity === 0) return { key: "out", label: "Checked Out" };
+  if (item.available_quantity > 0 && item.available_quantity < item.quantity) return { key: "partial", label: "Partial" };
+  return { key: "available", label: "Available" };
+}
+
 export default function InventoryList({ initialMode = "browse" }) {
   const navigate = useNavigate();
   const { role } = useAuth();
@@ -49,10 +56,15 @@ export default function InventoryList({ initialMode = "browse" }) {
   const [categoryFilter, setCategoryFilter] = useState(null);
   const [locationFilter, setLocationFilter] = useState(null);
   const [statusFilter,   setStatusFilter]   = useState("");
+  const [collapsedSections, setCollapsedSections] = useState({ status: false, category: false, location: false, condition: false });
   const [scannerMode, setScannerMode] = useState(null); // 'prefill' | 'serial' | null
   const [scanStatus, setScanStatus] = useState(null);   // { found: bool, message: string } | null
   const [scanLoading, setScanLoading] = useState(false);
   const [barcodeExistingCount, setBarcodeExistingCount] = useState(0);
+
+  function toggleSection(key) {
+    setCollapsedSections(prev => ({ ...prev, [key]: !prev[key] }));
+  }
 
   async function load() {
     setLoading(true);
@@ -106,9 +118,10 @@ export default function InventoryList({ initialMode = "browse" }) {
       if (categoryFilter === "uncategorized" && item.category_id != null) return false;
       if (categoryFilter !== null && categoryFilter !== "uncategorized" && item.category_id !== categoryFilter) return false;
       if (locationFilter !== null && item.location_id !== locationFilter) return false;
-      if (statusFilter === "available" && item.available_quantity !== item.quantity) return false;
+      if (statusFilter === "available" && !(item.available_quantity === item.quantity && item.quantity > 0)) return false;
       if (statusFilter === "partial" && !(item.available_quantity > 0 && item.available_quantity < item.quantity)) return false;
-      if (statusFilter === "out" && item.available_quantity !== 0) return false;
+      if (statusFilter === "out" && !(item.available_quantity === 0 && item.quantity > 0)) return false;
+      if (statusFilter === "not-in-lab" && item.quantity !== 0) return false;
       if (!q) return true;
       return [item.asset_code, item.name, item.serial_number, item.condition]
         .filter(Boolean).some((v) => v.toLowerCase().includes(q));
@@ -356,10 +369,20 @@ export default function InventoryList({ initialMode = "browse" }) {
                     </div>
                   </div>
                 )}
-                <div className="form-group">
-                  <label className="form-label">Quantity</label>
-                  <input className="form-input" type="number" min="1" value={itemForm.quantity} onChange={(e) => updateItemForm("quantity", e.target.value)} required />
-                </div>
+                {!itemForm.track_units && (
+                  <div className="form-group">
+                    <label className="form-label">Quantity</label>
+                    <input className="form-input" type="number" min="1" value={itemForm.quantity} onChange={(e) => updateItemForm("quantity", e.target.value)} required />
+                  </div>
+                )}
+                {itemForm.track_units && (
+                  <div className="form-group">
+                    <label className="form-label">Quantity</label>
+                    <p style={{ margin: 0, fontSize: "13px", color: "var(--color-muted, #6b7280)", paddingTop: "6px" }}>
+                      Managed by units — add units on the item detail page after creating.
+                    </p>
+                  </div>
+                )}
                 <div className="form-group">
                   <label className="form-label">Condition</label>
                   <select className="form-select" value={itemForm.condition} onChange={(e) => updateItemForm("condition", e.target.value)}>
@@ -455,106 +478,163 @@ export default function InventoryList({ initialMode = "browse" }) {
 
               {/* Status */}
               <div className="inv-filter-section">
-                <div className="inv-filter-title">Status</div>
-                {[
-                  { key: "",          label: "All",       count: items.length },
-                  { key: "available", label: "Available", count: items.filter(i => i.available_quantity === i.quantity).length },
-                  { key: "partial",   label: "Partial",   count: items.filter(i => i.available_quantity > 0 && i.available_quantity < i.quantity).length },
-                  { key: "out",       label: "Out",       count: items.filter(i => i.available_quantity === 0).length },
-                ].map(({ key, label, count }) => (
-                  <button
-                    key={key}
-                    type="button"
-                    className={`inv-filter-btn ${statusFilter === key ? "inv-filter-btn--active" : ""}`}
-                    onClick={() => setStatusFilter(key)}
-                  >
-                    {label}
-                    <span className="inv-filter-count">{count}</span>
-                  </button>
-                ))}
+                <div
+                  className="inv-filter-title"
+                  style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                  onClick={() => toggleSection("status")}
+                >
+                  <span>Status</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                    style={{ transform: collapsedSections.status ? "rotate(0deg)" : "rotate(90deg)", transition: "transform 160ms ease" }}>
+                    <polyline points="9 18 15 12 9 6"/>
+                  </svg>
+                </div>
+                <div style={{ display: "grid", gridTemplateRows: collapsedSections.status ? "0fr" : "1fr", transition: "grid-template-rows 220ms ease" }}>
+                  <div style={{ overflow: "hidden" }}>
+                    {[
+                      { key: "",          label: "All",       count: items.length },
+                      { key: "available", label: "Available", count: items.filter(i => i.available_quantity === i.quantity && i.quantity > 0).length },
+                      { key: "partial",   label: "Partial",   count: items.filter(i => i.available_quantity > 0 && i.available_quantity < i.quantity).length },
+                      { key: "out",       label: "Out",       count: items.filter(i => i.available_quantity === 0 && i.quantity > 0).length },
+                      { key: "not-in-lab", label: "Not in Lab", count: items.filter(i => i.quantity === 0).length },
+                    ].map(({ key, label, count }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        className={`inv-filter-btn ${statusFilter === key ? "inv-filter-btn--active" : ""}`}
+                        onClick={() => setStatusFilter(key)}
+                      >
+                        {label}
+                        <span className="inv-filter-count">{count}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               {/* Categories */}
               <div className="inv-filter-section">
-                <div className="inv-filter-title">Category</div>
-                <button
-                  type="button"
-                  className={`inv-filter-btn ${categoryFilter === null ? "inv-filter-btn--active" : ""}`}
-                  onClick={() => setCategoryFilter(null)}
+                <div
+                  className="inv-filter-title"
+                  style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                  onClick={() => toggleSection("category")}
                 >
-                  All
-                  <span className="inv-filter-count">{items.length}</span>
-                </button>
-                {uncategorizedCount > 0 && (
-                  <button
-                    type="button"
-                    className={`inv-filter-btn ${categoryFilter === "uncategorized" ? "inv-filter-btn--active" : ""}`}
-                    onClick={() => setCategoryFilter(categoryFilter === "uncategorized" ? null : "uncategorized")}
-                  >
-                    <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: uncategorizedMeta.color, flexShrink: 0 }} />
-                    Uncategorized
-                    <span className="inv-filter-count">{uncategorizedCount}</span>
-                  </button>
-                )}
-                {categories.map((cat) => {
-                  const meta = getCategoryMeta(cat);
-                  const count = items.filter(i => i.category_id === cat.id).length;
-                  return (
+                  <span>Category</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                    style={{ transform: collapsedSections.category ? "rotate(0deg)" : "rotate(90deg)", transition: "transform 160ms ease" }}>
+                    <polyline points="9 18 15 12 9 6"/>
+                  </svg>
+                </div>
+                <div style={{ display: "grid", gridTemplateRows: collapsedSections.category ? "0fr" : "1fr", transition: "grid-template-rows 220ms ease" }}>
+                  <div style={{ overflow: "hidden" }}>
                     <button
-                      key={cat.id}
                       type="button"
-                      className={`inv-filter-btn ${categoryFilter === cat.id ? "inv-filter-btn--active" : ""}`}
-                      onClick={() => setCategoryFilter(categoryFilter === cat.id ? null : cat.id)}
+                      className={`inv-filter-btn ${categoryFilter === null ? "inv-filter-btn--active" : ""}`}
+                      onClick={() => setCategoryFilter(null)}
                     >
-                      <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: meta.color, flexShrink: 0 }} />
-                      {cat.name}
-                      <span className="inv-filter-count">{count}</span>
+                      All
+                      <span className="inv-filter-count">{items.length}</span>
                     </button>
-                  );
-                })}
+                    {uncategorizedCount > 0 && (
+                      <button
+                        type="button"
+                        className={`inv-filter-btn ${categoryFilter === "uncategorized" ? "inv-filter-btn--active" : ""}`}
+                        onClick={() => setCategoryFilter(categoryFilter === "uncategorized" ? null : "uncategorized")}
+                      >
+                        <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: uncategorizedMeta.color, flexShrink: 0 }} />
+                        Uncategorized
+                        <span className="inv-filter-count">{uncategorizedCount}</span>
+                      </button>
+                    )}
+                    {categories.map((cat) => {
+                      const meta = getCategoryMeta(cat);
+                      const count = items.filter(i => i.category_id === cat.id).length;
+                      return (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          className={`inv-filter-btn ${categoryFilter === cat.id ? "inv-filter-btn--active" : ""}`}
+                          onClick={() => setCategoryFilter(categoryFilter === cat.id ? null : cat.id)}
+                        >
+                          <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: meta.color, flexShrink: 0 }} />
+                          {cat.name}
+                          <span className="inv-filter-count">{count}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
 
               {/* Locations */}
               <div className="inv-filter-section">
-                <div className="inv-filter-title">Location</div>
-                <button
-                  type="button"
-                  className={`inv-filter-btn ${locationFilter === null ? "inv-filter-btn--active" : ""}`}
-                  onClick={() => setLocationFilter(null)}
+                <div
+                  className="inv-filter-title"
+                  style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                  onClick={() => toggleSection("location")}
                 >
-                  All
-                  <span className="inv-filter-count">{items.length}</span>
-                </button>
-                {locations.map((loc) => {
-                  const count = items.filter(i => i.location_id === loc.id).length;
-                  return (
+                  <span>Location</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                    style={{ transform: collapsedSections.location ? "rotate(0deg)" : "rotate(90deg)", transition: "transform 160ms ease" }}>
+                    <polyline points="9 18 15 12 9 6"/>
+                  </svg>
+                </div>
+                <div style={{ display: "grid", gridTemplateRows: collapsedSections.location ? "0fr" : "1fr", transition: "grid-template-rows 220ms ease" }}>
+                  <div style={{ overflow: "hidden" }}>
                     <button
-                      key={loc.id}
                       type="button"
-                      className={`inv-filter-btn ${locationFilter === loc.id ? "inv-filter-btn--active" : ""}`}
-                      onClick={() => setLocationFilter(locationFilter === loc.id ? null : loc.id)}
+                      className={`inv-filter-btn ${locationFilter === null ? "inv-filter-btn--active" : ""}`}
+                      onClick={() => setLocationFilter(null)}
                     >
-                      {loc.name}
-                      <span className="inv-filter-count">{count}</span>
+                      All
+                      <span className="inv-filter-count">{items.length}</span>
                     </button>
-                  );
-                })}
+                    {locations.map((loc) => {
+                      const count = items.filter(i => i.location_id === loc.id).length;
+                      return (
+                        <button
+                          key={loc.id}
+                          type="button"
+                          className={`inv-filter-btn ${locationFilter === loc.id ? "inv-filter-btn--active" : ""}`}
+                          onClick={() => setLocationFilter(locationFilter === loc.id ? null : loc.id)}
+                        >
+                          {loc.name}
+                          <span className="inv-filter-count">{count}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
 
               {/* Condition */}
               <div className="inv-filter-section">
-                <div className="inv-filter-title">Condition</div>
-                <select
-                  className="table-filter"
-                  style={{ width: "100%" }}
-                  value={conditionFilter}
-                  onChange={(e) => setConditionFilter(e.target.value)}
+                <div
+                  className="inv-filter-title"
+                  style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                  onClick={() => toggleSection("condition")}
                 >
-                  <option value="">All conditions</option>
-                  <option value="good">Good</option>
-                  <option value="needs_repair">Needs Repair</option>
-                  <option value="damaged">Damaged</option>
-                </select>
+                  <span>Condition</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                    style={{ transform: collapsedSections.condition ? "rotate(0deg)" : "rotate(90deg)", transition: "transform 160ms ease" }}>
+                    <polyline points="9 18 15 12 9 6"/>
+                  </svg>
+                </div>
+                <div style={{ display: "grid", gridTemplateRows: collapsedSections.condition ? "0fr" : "1fr", transition: "grid-template-rows 220ms ease" }}>
+                  <div style={{ overflow: "hidden" }}>
+                    <select
+                      className="table-filter"
+                      style={{ width: "100%" }}
+                      value={conditionFilter}
+                      onChange={(e) => setConditionFilter(e.target.value)}
+                    >
+                      <option value="">All conditions</option>
+                      <option value="good">Good</option>
+                      <option value="needs_repair">Needs Repair</option>
+                      <option value="damaged">Damaged</option>
+                    </select>
+                  </div>
+                </div>
               </div>
 
               {/* Quick actions — non-students only */}
@@ -602,15 +682,12 @@ export default function InventoryList({ initialMode = "browse" }) {
                     const categoryName = item.category_id == null ? "Uncategorized" : categories.find((c) => c.id === item.category_id)?.name ?? "—";
                     const canCheckout = item.available_quantity > 0 && item.condition === "good";
                     const canCheckin = item.available_quantity < item.quantity;
-                    const fullyOut = item.available_quantity === 0;
-                    const partial = !fullyOut && item.available_quantity < item.quantity;
-                    const statusKey = fullyOut ? "out" : partial ? "partial" : "available";
-                    const chipLabel = fullyOut ? "Out" : partial ? "Partial" : "Available";
+                    const status = getItemStatus(item);
                     return (
-                      <div key={item.id} className="inv-card" onClick={() => navigate(`/items/${item.id}`)}>
+                      <div key={item.id} className="inv-card" style={{ opacity: item.quantity === 0 ? 0.5 : 1 }} onClick={() => navigate(`/items/${item.id}`)}>
                         <div className="inv-card__header">
                           <span className="inv-card__code">{item.asset_code}</span>
-                          <span className={`inv-card__chip inv-card__chip--${statusKey}`}>{chipLabel}</span>
+                          <span className={`inv-card__chip inv-card__chip--${status.key}`}>{status.label}</span>
                         </div>
                         <div className="inv-card__name">{item.name}</div>
                         <div className="inv-card__meta">
@@ -621,8 +698,27 @@ export default function InventoryList({ initialMode = "browse" }) {
                         <div className="inv-card__footer">
                           <span className="inv-card__stats">
                             {item.available_quantity}/{item.quantity}
-                            <span className="inv-card__sep"> · </span>
-                            {item.condition.replace(/_/g, " ")}
+                            {item.condition !== "good" && (
+                              <>
+                                <span className="inv-card__sep"> · </span>
+                                <span style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                  padding: "2px 8px",
+                                  borderRadius: "999px",
+                                  fontSize: "11px",
+                                  fontWeight: 700,
+                                  letterSpacing: "0.04em",
+                                  textTransform: "uppercase",
+                                  background: item.condition === "damaged" ? "#fee2e2" : "#fef3c7",
+                                  color: item.condition === "damaged" ? "#b91c1c" : "#92400e",
+                                  border: `1px solid ${item.condition === "damaged" ? "#fca5a5" : "#fcd34d"}`,
+                                }}>
+                                  ⚠ {item.condition === "damaged" ? "Damaged" : "Needs Repair"}
+                                </span>
+                              </>
+                            )}
                           </span>
                           {!isStudent && (
                             <div className="inv-card__actions">

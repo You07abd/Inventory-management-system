@@ -280,6 +280,8 @@ thead th { padding: 0; }
 }
 .badge--available  { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
 .badge--checked-out{ background: #fef2f2; color: #dc2626; border-color: #fecaca; }
+.badge--partial    { background: #fffbeb; color: #92400e; border-color: #fde68a; }
+.badge--not-in-lab { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
 .badge--excellent  { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
 .badge--good       { background: #f0fdf4; color: #16a34a; border-color: #bbf7d0; }
 .badge--fair       { background: #fefce8; color: #a16207; border-color: #fde68a; }
@@ -631,6 +633,7 @@ thead th { padding: 0; }
 .inv-card__chip--available { background: #f0fdf4; color: #15803d; }
 .inv-card__chip--partial   { background: #fffbeb; color: #92400e; }
 .inv-card__chip--out       { background: #fef2f2; color: #991b1b; }
+.inv-card__chip--not-in-lab { background: #f1f5f9; color: #475569; }
 .inv-card__chip--in-cart   { background: var(--color-primary-light); color: var(--color-primary); }
 .inv-card__chip--disabled  { background: #f1f5f9; color: var(--color-muted); }
 
@@ -714,6 +717,9 @@ thead th { padding: 0; }
 .inv-table tbody tr[data-status="out"] .inv-table__accent {
   box-shadow: inset 3px 0 0 #ef4444;
 }
+.inv-table tbody tr[data-status="not-in-lab"] .inv-table__accent {
+  box-shadow: inset 3px 0 0 #94a3b8;
+}
 
 .inv-table__condition {
   font-size: 12px;
@@ -740,6 +746,8 @@ thead th { padding: 0; }
 .inv-table__status--partial   .inv-table__dot { background: #f59e0b; }
 .inv-table__status--out       { color: #991b1b; }
 .inv-table__status--out       .inv-table__dot { background: #ef4444; }
+.inv-table__status--not-in-lab { color: #475569; }
+.inv-table__status--not-in-lab .inv-table__dot { background: #94a3b8; }
 
 /* ── Grid panel slide transitions ── */
 @keyframes slideFromRight {
