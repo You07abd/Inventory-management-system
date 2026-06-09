@@ -69,7 +69,7 @@ Two modes — pick the one that matches your situation.
 
 | Mode | What it is | Persists? |
 |---|---|---|
-| [1 — Demo / Local](#mode-1--demo--local) | Throwaway local PostgreSQL from `docker-compose.yml`, configured by `backend/.env`, on port 5432 with DB name `drone_inventory`. | No |
+| [1 — Demo / Local](#mode-1--demo--local) | Throwaway local PostgreSQL from `docker-compose.yml`, configured by `backend/.env`, on port 5433 with DB name `drone_inventory`. | No |
 | [2 — Coolify / Production](#mode-2--coolify--production) | Remote PostgreSQL managed by Coolify, configured by `backend/.env.production`, using a remote port and DB name of your choice. | Yes |
 
 ---
@@ -334,7 +334,7 @@ docker compose down
 - Windows: `.\venv\Scripts\Activate.ps1`
 - Linux: `source venv/bin/activate`
 
-**`could not connect to server` or `Connection refused` on port 5432**
+**`could not connect to server` or `Connection refused` on port 5433**
 → The Docker container isn't running. Run `docker compose up -d` from the project root and wait a few seconds.
 
 **Frontend shows network errors or blank data**
