@@ -27,7 +27,7 @@ services:
     build:
       context: ./frontend
       args:
-        VITE_API_BASE_URL: https://aryx.dev
+        VITE_API_BASE_URL: https://api.aryx.dev
     depends_on:
       - backend
     networks:
