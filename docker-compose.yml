@@ -21,6 +21,7 @@ services:
       - db
     networks:
       - app_network
+      - coolify
     restart: unless-stopped
 
   frontend:
@@ -32,10 +33,13 @@ services:
       - backend
     networks:
       - app_network
+      - coolify
     restart: unless-stopped
 
 networks:
   app_network:
+  coolify:
+    external: true
 
 volumes:
   db_data:
