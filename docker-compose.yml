@@ -5,5 +5,37 @@ services:
       POSTGRES_USER: inv_user
       POSTGRES_PASSWORD: inv_pass
       POSTGRES_DB: drone_inventory
-    ports:
-      - "5433:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - app_network
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg2://inv_user:inv_pass@db:5432/drone_inventory
+      FRONTEND_ORIGIN: https://aryx.dev
+    depends_on:
+      - db
+    networks:
+      - app_network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: https://aryx.dev
+    depends_on:
+      - backend
+    networks:
+      - app_network
+    restart: unless-stopped
+
+networks:
+  app_network:
+
+volumes:
+  db_data:
