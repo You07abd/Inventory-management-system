@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -12,9 +13,8 @@ class ItemBase(BaseModel):
     barcode: str | None = None
     quantity: int = Field(default=0, ge=0)
     available_quantity: int | None = Field(default=None, ge=0)
-    condition: str = "good"
-    status: str = "available"
-    qr_code: str | None = None
+    condition: Literal["good", "fair", "poor", "damaged", "retired"] = "good"
+    status: Literal["available", "checked_out", "partially_available", "maintenance", "retired"] = "available"
     track_units: bool = True
     current_holder_id: int | None = None
     category_id: int | None = None
@@ -22,14 +22,14 @@ class ItemBase(BaseModel):
 
 
 class ItemCreate(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1)
     description: str | None = None
     serial_number: str | None = None
     barcode: str | None = None
     quantity: int = Field(default=0, ge=0)
     available_quantity: int | None = Field(default=None, ge=0)
-    condition: str = "good"
-    status: str = "available"
+    condition: Literal["good", "fair", "poor", "damaged", "retired"] = "good"
+    status: Literal["available", "checked_out", "partially_available", "maintenance", "retired"] = "available"
     track_units: bool = True
     current_holder_id: int | None = None
     category_id: int | None = None
@@ -37,14 +37,14 @@ class ItemCreate(BaseModel):
 
 
 class ItemUpdate(BaseModel):
-    name: str | None = None
+    name: str | None = Field(default=None, min_length=1)
     description: str | None = None
     serial_number: str | None = None
     barcode: str | None = None
     quantity: int | None = Field(default=None, ge=0)
     available_quantity: int | None = Field(default=None, ge=0)
-    condition: str | None = None
-    status: str | None = None
+    condition: Literal["good", "fair", "poor", "damaged", "retired"] | None = None
+    status: Literal["available", "checked_out", "partially_available", "maintenance", "retired"] | None = None
     track_units: bool = True
     current_holder_id: int | None = None
     category_id: int | None = None

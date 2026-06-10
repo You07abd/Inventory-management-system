@@ -1,14 +1,14 @@
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CategoryBase(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1)
     description: str | None = None
     icon: str | None = None
     color: str | None = None
-    default_tracking: Literal["unit", "bulk"] = "unit"
+    default_tracking: Literal["unit", "quantity"] = "unit"
 
 
 class CategoryCreate(CategoryBase):
@@ -16,11 +16,11 @@ class CategoryCreate(CategoryBase):
 
 
 class CategoryUpdate(BaseModel):
-    name: str | None = None
+    name: str | None = Field(default=None, min_length=1)
     description: str | None = None
     icon: str | None = None
     color: str | None = None
-    default_tracking: Literal["unit", "bulk"] | None = None
+    default_tracking: Literal["unit", "quantity"] | None = None
 
 
 class Category(CategoryBase):

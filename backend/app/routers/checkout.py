@@ -1,5 +1,5 @@
-from datetime import datetime
-from uuid import uuid4
+from datetime import datetime, timezone
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -53,7 +53,7 @@ def unified_cart_checkout(payload: UnifiedCartRequest, db: Session = Depends(get
         if uid in seen_unit_ids:
             raise HTTPException(status_code=400, detail=f"Unit {uid} appears more than once.")
         seen_unit_ids.add(uid)
-        unit = db.query(Unit).options(joinedload(Unit.item)).filter(Unit.id == uid).first()
+        unit = db.query(Unit).with_for_update().options(joinedload(Unit.item)).filter(Unit.id == uid).first()
         if not unit:
             raise HTTPException(status_code=400, detail=f"Unit {uid} not found.")
         if not unit.item.track_units:
@@ -78,7 +78,7 @@ def unified_cart_checkout(payload: UnifiedCartRequest, db: Session = Depends(get
         if entry.item_id in seen_item_ids:
             raise HTTPException(status_code=400, detail=f"Item {entry.item_id} appears more than once.")
         seen_item_ids.add(entry.item_id)
-        item = db.get(Item, entry.item_id)
+        item = db.query(Item).with_for_update().filter(Item.id == entry.item_id).first()
         if not item:
             raise HTTPException(status_code=400, detail=f"Item {entry.item_id} not found.")
         if item.track_units:
@@ -93,7 +93,7 @@ def unified_cart_checkout(payload: UnifiedCartRequest, db: Session = Depends(get
         bulk_rows.append((item, entry.quantity))
 
     # All validation passed — apply changes in a single transaction
-    session_id = str(uuid4())
+    session_id = str(uuid.uuid4())
     created: list[Transaction] = []
 
     for unit in units:

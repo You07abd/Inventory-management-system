@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -6,14 +7,13 @@ from pydantic import BaseModel, ConfigDict, Field
 class TransactionBase(BaseModel):
     item_id: int
     user_id: int
-    type: str
+    type: Literal["checkout", "checkin", "transfer", "adjust"]
     quantity: int = Field(default=1, ge=1)
     notes: str | None = None
     destination: str | None = None
     condition_on_return: str | None = None
     due_date: datetime | None = None
     returned_at: datetime | None = None
-    session_id: str | None = None
     unit_id: int | None = None
     unit_asset_code: str | None = None
 
@@ -27,6 +27,7 @@ class Transaction(TransactionBase):
 
     id: int
     created_at: datetime
+    session_id: str | None = None
     user_name: str | None = None
 
 

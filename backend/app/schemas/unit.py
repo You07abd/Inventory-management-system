@@ -1,21 +1,22 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class UnitCreate(BaseModel):
     serial_number: str | None = None
-    condition: str = "good"
+    condition: Literal["good", "fair", "poor", "damaged", "retired"] = "good"
     location_id: int | None = None
     notes: str | None = None
 
 
 class UnitUpdate(BaseModel):
     serial_number: str | None = None
-    condition: str | None = None
+    condition: Literal["good", "fair", "poor", "damaged", "retired"] | None = None
     location_id: int | None = None
     notes: str | None = None
-    status: str | None = None
+    status: Literal["available", "checked_out", "maintenance", "retired"] | None = None
 
 
 class Unit(BaseModel):
@@ -26,13 +27,12 @@ class Unit(BaseModel):
     unit_number: int
     asset_code: str
     serial_number: str | None
-    condition: str
-    status: str
+    condition: Literal["good", "fair", "poor", "damaged", "retired"]
+    status: Literal["available", "checked_out", "maintenance", "retired"]
     location_id: int | None
     location_name: str | None
     current_holder_id: int | None
     current_holder_name: str | None
-    qr_code: str | None
     notes: str | None
     created_at: datetime
     updated_at: datetime

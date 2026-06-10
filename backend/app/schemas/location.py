@@ -1,8 +1,8 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class LocationBase(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1)
     description: str | None = None
 
 
@@ -11,7 +11,7 @@ class LocationCreate(LocationBase):
 
 
 class LocationUpdate(BaseModel):
-    name: str | None = None
+    name: str | None = Field(default=None, min_length=1)
     description: str | None = None
 
 

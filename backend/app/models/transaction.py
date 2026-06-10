@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -21,7 +21,11 @@ class Transaction(Base):
     condition_on_return: Mapped[str | None] = mapped_column(String(80), nullable=True)
     due_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     returned_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
 
     item = relationship("Item", back_populates="transactions")
     user = relationship("User", back_populates="transactions")

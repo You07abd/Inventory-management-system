@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -18,11 +18,17 @@ class Unit(Base):
     status: Mapped[str] = mapped_column(String(80), nullable=False, default="available")
     location_id: Mapped[int | None] = mapped_column(ForeignKey("locations.id"), nullable=True)
     current_holder_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
-    qr_code: Mapped[str | None] = mapped_column(Text, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
 
     __table_args__ = (UniqueConstraint("item_id", "unit_number", name="uq_unit_item_number"),)

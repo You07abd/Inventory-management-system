@@ -3,7 +3,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.item import Item
 from app.models.location import Location
+from app.models.unit import Unit
 from app.schemas.location import Location as LocationSchema
 from app.schemas.location import LocationCreate, LocationUpdate
 
@@ -58,6 +60,10 @@ def delete_location(location_id: int, db: Session = Depends(get_db)):
     location = db.get(Location, location_id)
     if not location:
         raise HTTPException(status_code=404, detail="Location not found.")
+    if db.query(Item).filter(Item.location_id == location_id).first():
+        raise HTTPException(status_code=409, detail="Cannot delete location: items are assigned to it")
+    if db.query(Unit).filter(Unit.location_id == location_id).first():
+        raise HTTPException(status_code=409, detail="Cannot delete location: units are assigned to it")
     db.delete(location)
     db.commit()
     return None

@@ -1,12 +1,13 @@
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class UserBase(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1)
     email: str
-    role: str = "student"
+    role: Literal["student", "staff", "admin"] = "student"
 
 
 class UserCreate(UserBase):
@@ -14,9 +15,9 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(BaseModel):
-    name: str | None = None
+    name: str | None = Field(default=None, min_length=1)
     email: str | None = None
-    role: str | None = None
+    role: Literal["student", "staff", "admin"] | None = None
 
 
 class User(UserBase):

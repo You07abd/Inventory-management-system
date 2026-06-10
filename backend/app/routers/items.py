@@ -1,9 +1,7 @@
-import base64
-from datetime import datetime
-from io import BytesIO
-from uuid import uuid4
+from datetime import datetime, timezone
+import secrets
+import uuid
 
-import qrcode
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
@@ -24,21 +22,14 @@ from app.schemas.transaction import Transaction as TransactionSchema
 router = APIRouter(prefix="/items", tags=["items"])
 
 
-def generate_asset_code(db: Session) -> str:
-    next_number = db.query(Item).count() + 1
-    while True:
-        code = f"SAFCSP-DRONE-{next_number:04d}"
-        if not db.query(Item).filter(Item.asset_code == code).first():
-            return code
-        next_number += 1
-
-
-def generate_qr_code(asset_code: str) -> str:
-    image = qrcode.make(asset_code)
-    buffer = BytesIO()
-    image.save(buffer, format="PNG")
-    encoded = base64.b64encode(buffer.getvalue()).decode("utf-8")
-    return f"data:image/png;base64,{encoded}"
+def generate_asset_code(prefix: str, db: Session, model_class, max_attempts: int = 10) -> str:
+    for _ in range(max_attempts):
+        suffix = secrets.token_hex(3).upper()
+        candidate = f"{prefix}-{suffix}"
+        exists = db.query(model_class).filter(model_class.asset_code == candidate).first()
+        if not exists:
+            return candidate
+    raise RuntimeError("Failed to generate unique asset code after retries")
 
 
 def _get_item_or_404(item_id: int, db: Session) -> Item:
@@ -117,12 +108,12 @@ def create_item(payload: ItemCreate, db: Session = Depends(get_db)):
     if available_quantity > quantity:
         raise HTTPException(status_code=400, detail="available_quantity cannot exceed quantity.")
 
-    asset_code = generate_asset_code(db)
+    asset_code = generate_asset_code("SAFCSP-DRONE", db, Item)
     data["available_quantity"] = available_quantity
     if data.get("track_units", True):
         data["quantity"] = 0
         data["available_quantity"] = 0
-    item = Item(**data, asset_code=asset_code, qr_code=generate_qr_code(asset_code))
+    item = Item(**data, asset_code=asset_code)
     _set_status_from_availability(item)
     db.add(item)
     db.commit()
@@ -149,7 +140,7 @@ def _resolve_cart_items(db: Session, entries: list[CartCheckoutItem]) -> list[tu
                 detail=f"Item {entry.item_id} appears more than once in the cart.",
             )
         seen_ids.add(entry.item_id)
-        item = db.get(Item, entry.item_id)
+        item = db.query(Item).with_for_update().filter(Item.id == entry.item_id).first()
         if not item:
             raise HTTPException(status_code=400, detail=f"Item {entry.item_id} not found.")
         if entry.quantity > item.available_quantity:
@@ -173,7 +164,7 @@ def cart_checkout(payload: CartCheckoutRequest, db: Session = Depends(get_db)):
     # Pre-validate ALL items before touching the DB so failures are all-or-nothing.
     rows = _resolve_cart_items(db, payload.items)
 
-    session_id = str(uuid4())
+    session_id = str(uuid.uuid4())
     created: list[Transaction] = []
     for item, qty in rows:
         item.available_quantity -= qty
@@ -249,7 +240,9 @@ def delete_item(item_id: int, db: Session = Depends(get_db)):
 
 @router.post("/{item_id}/checkout", response_model=TransactionSchema, status_code=status.HTTP_201_CREATED)
 def checkout_item(item_id: int, payload: CheckoutRequest, db: Session = Depends(get_db)):
-    item = _get_item_or_404(item_id, db)
+    item = db.query(Item).with_for_update().filter(Item.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found.")
     user = db.get(User, payload.user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
@@ -280,7 +273,9 @@ def checkout_item(item_id: int, payload: CheckoutRequest, db: Session = Depends(
 
 @router.post("/{item_id}/checkin", response_model=TransactionSchema, status_code=status.HTTP_201_CREATED)
 def checkin_item(item_id: int, payload: CheckinRequest, db: Session = Depends(get_db)):
-    item = _get_item_or_404(item_id, db)
+    item = db.query(Item).with_for_update().filter(Item.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found.")
     user = db.get(User, payload.user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
@@ -300,7 +295,7 @@ def checkin_item(item_id: int, payload: CheckinRequest, db: Session = Depends(ge
         quantity=payload.quantity,
         notes=payload.notes,
         condition_on_return=payload.condition_on_return,
-        returned_at=datetime.utcnow(),
+        returned_at=datetime.now(timezone.utc),
     )
     db.add(transaction)
     db.commit()

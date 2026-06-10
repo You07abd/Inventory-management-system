@@ -3,7 +3,7 @@ from app.models.category import Category
 from app.models.item import Item
 from app.models.location import Location
 from app.models.user import User
-from app.routers.items import generate_asset_code, generate_qr_code
+from app.routers.items import generate_asset_code
 
 
 def get_or_create(db, model, defaults=None, **filters):
@@ -234,11 +234,10 @@ def seed():
             existing = db.query(Item).filter(Item.serial_number == item_data["serial_number"]).first()
             if existing:
                 continue
-            asset_code = generate_asset_code(db)
+            asset_code = generate_asset_code("SAFCSP-DRONE", db, Item)
             item = Item(
                 **item_data,
                 asset_code=asset_code,
-                qr_code=generate_qr_code(asset_code),
                 current_holder_id=None,
             )
             db.add(item)

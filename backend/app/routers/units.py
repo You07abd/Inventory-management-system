@@ -1,9 +1,6 @@
-import base64
-from datetime import datetime
-from io import BytesIO
-from uuid import uuid4
+from datetime import datetime, timezone
+import uuid
 
-import qrcode
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 
@@ -13,6 +10,7 @@ from app.models.location import Location
 from app.models.transaction import Transaction
 from app.models.unit import Unit
 from app.models.user import User
+from app.routers.items import generate_asset_code
 from app.schemas.unit import (
     Unit as UnitSchema,
     UnitCartCheckoutRequest,
@@ -27,14 +25,6 @@ from app.schemas.transaction import Transaction as TransactionSchema
 
 
 router = APIRouter(tags=["units"])
-
-
-def _generate_qr(asset_code: str) -> str:
-    image = qrcode.make(asset_code)
-    buf = BytesIO()
-    image.save(buf, format="PNG")
-    encoded = base64.b64encode(buf.getvalue()).decode("utf-8")
-    return f"data:image/png;base64,{encoded}"
 
 
 def _get_unit_or_404(unit_id: int, db: Session) -> Unit:
@@ -84,11 +74,9 @@ def create_unit(item_id: int, payload: UnitCreate, db: Session = Depends(get_db)
 
     existing_max = db.query(Unit).filter(Unit.item_id == item_id).count()
     unit_number = existing_max + 1
-    asset_code = f"{item.asset_code}-U{unit_number:02d}"
-
-    while db.query(Unit).filter(Unit.asset_code == asset_code).first():
+    while db.query(Unit).filter(Unit.item_id == item_id, Unit.unit_number == unit_number).first():
         unit_number += 1
-        asset_code = f"{item.asset_code}-U{unit_number:02d}"
+    asset_code = generate_asset_code(f"{item.asset_code}-U", db, Unit)
 
     unit = Unit(
         item_id=item_id,
@@ -98,7 +86,6 @@ def create_unit(item_id: int, payload: UnitCreate, db: Session = Depends(get_db)
         condition=payload.condition,
         status="available",
         location_id=payload.location_id or item.location_id,
-        qr_code=_generate_qr(asset_code),
         notes=payload.notes,
     )
     db.add(unit)
@@ -170,7 +157,15 @@ def delete_unit(unit_id: int, db: Session = Depends(get_db)):
 
 @router.post("/units/{unit_id}/checkout", response_model=TransactionSchema, status_code=status.HTTP_201_CREATED)
 def checkout_unit(unit_id: int, payload: UnitCheckoutRequest, db: Session = Depends(get_db)):
-    unit = _get_unit_or_404(unit_id, db)
+    unit = (
+        db.query(Unit)
+        .with_for_update()
+        .options(joinedload(Unit.location), joinedload(Unit.current_holder), joinedload(Unit.item))
+        .filter(Unit.id == unit_id)
+        .first()
+    )
+    if not unit:
+        raise HTTPException(status_code=404, detail="Unit not found.")
     if unit.status == "checked_out":
         raise HTTPException(status_code=400, detail="Unit is already checked out.")
     if unit.condition == "damaged":
@@ -204,7 +199,15 @@ def checkout_unit(unit_id: int, payload: UnitCheckoutRequest, db: Session = Depe
 
 @router.post("/units/{unit_id}/checkin", response_model=TransactionSchema, status_code=status.HTTP_201_CREATED)
 def checkin_unit(unit_id: int, payload: UnitCheckinRequest, db: Session = Depends(get_db)):
-    unit = _get_unit_or_404(unit_id, db)
+    unit = (
+        db.query(Unit)
+        .with_for_update()
+        .options(joinedload(Unit.location), joinedload(Unit.current_holder), joinedload(Unit.item))
+        .filter(Unit.id == unit_id)
+        .first()
+    )
+    if not unit:
+        raise HTTPException(status_code=404, detail="Unit not found.")
     if unit.status != "checked_out":
         raise HTTPException(status_code=400, detail="Unit is not currently checked out.")
     user = db.get(User, payload.user_id)
@@ -226,7 +229,7 @@ def checkin_unit(unit_id: int, payload: UnitCheckinRequest, db: Session = Depend
         quantity=1,
         notes=payload.notes,
         condition_on_return=payload.condition_on_return,
-        returned_at=datetime.utcnow(),
+        returned_at=datetime.now(timezone.utc),
     )
     db.add(tx)
     db.commit()
@@ -249,14 +252,22 @@ def unit_cart_checkout(payload: UnitCartCheckoutRequest, db: Session = Depends(g
         if uid in seen:
             raise HTTPException(status_code=400, detail=f"Unit {uid} appears more than once.")
         seen.add(uid)
-        unit = _get_unit_or_404(uid, db)
+        unit = (
+            db.query(Unit)
+            .with_for_update()
+            .options(joinedload(Unit.location), joinedload(Unit.current_holder), joinedload(Unit.item))
+            .filter(Unit.id == uid)
+            .first()
+        )
+        if not unit:
+            raise HTTPException(status_code=404, detail="Unit not found.")
         if unit.status == "checked_out":
             raise HTTPException(status_code=400, detail=f"Unit {unit.asset_code} is already checked out.")
         if unit.condition == "damaged":
             raise HTTPException(status_code=400, detail=f"Unit {unit.asset_code} is damaged and cannot be checked out.")
         units.append(unit)
 
-    session_id = str(uuid4())
+    session_id = str(uuid.uuid4())
     item_name_map: dict[int, str] = {}
 
     for unit in units:
