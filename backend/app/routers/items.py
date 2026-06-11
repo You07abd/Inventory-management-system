@@ -6,7 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
+from app.audit import record_audit
 from app.database import get_db
+from app.deps import get_current_user, require_staff
 from app.models.category import Category
 from app.models.item import Item
 from app.models.location import Location
@@ -20,6 +22,32 @@ from app.schemas.transaction import Transaction as TransactionSchema
 
 
 router = APIRouter(prefix="/items", tags=["items"])
+
+# Statuses/conditions that block a checkout.
+_BLOCKED_STATUSES = {"maintenance", "retired"}
+_BLOCKED_CONDITION = "damaged"
+
+
+def _assert_checkoutable(item: Item) -> None:
+    if item.status in _BLOCKED_STATUSES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Item {item.asset_code} is '{item.status}' and cannot be checked out.",
+        )
+    if item.condition == _BLOCKED_CONDITION:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Item {item.asset_code} is marked damaged and cannot be checked out.",
+        )
+
+
+def _authorize_borrower(actor: User, borrower_id: int) -> None:
+    """Students may only check out to themselves; staff/admin to anyone."""
+    if actor.role == "student" and borrower_id != actor.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Students may only check out items to themselves.",
+        )
 
 
 def generate_asset_code(prefix: str, db: Session, model_class, max_attempts: int = 10) -> str:
@@ -69,9 +97,13 @@ def list_items(
     location_id: int | None = None,
     search: str | None = None,
     barcode: str | None = None,
+    include_deleted: bool = False,
     db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
 ):
     query = db.query(Item)
+    if not include_deleted:
+        query = query.filter(Item.deleted_at.is_(None))
     if status_filter:
         query = query.filter(Item.status == status_filter)
     if category_id is not None:
@@ -100,7 +132,7 @@ def list_items(
 
 
 @router.post("/", response_model=ItemSchema, status_code=status.HTTP_201_CREATED)
-def create_item(payload: ItemCreate, db: Session = Depends(get_db)):
+def create_item(payload: ItemCreate, db: Session = Depends(get_db), actor: User = Depends(require_staff)):
     data = payload.model_dump()
     _validate_references(db, data.get("current_holder_id"), data.get("category_id"), data.get("location_id"))
     quantity = data["quantity"]
@@ -122,8 +154,8 @@ def create_item(payload: ItemCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/by-asset-code/{code}", response_model=ItemSchema)
-def get_item_by_asset_code(code: str, db: Session = Depends(get_db)):
-    item = db.query(Item).filter(Item.asset_code == code).first()
+def get_item_by_asset_code(code: str, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+    item = db.query(Item).filter(Item.asset_code == code, Item.deleted_at.is_(None)).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found.")
     return item
@@ -143,6 +175,7 @@ def _resolve_cart_items(db: Session, entries: list[CartCheckoutItem]) -> list[tu
         item = db.query(Item).with_for_update().filter(Item.id == entry.item_id).first()
         if not item:
             raise HTTPException(status_code=400, detail=f"Item {entry.item_id} not found.")
+        _assert_checkoutable(item)
         if entry.quantity > item.available_quantity:
             raise HTTPException(
                 status_code=400,
@@ -156,10 +189,15 @@ def _resolve_cart_items(db: Session, entries: list[CartCheckoutItem]) -> list[tu
 
 
 @router.post("/cart-checkout", response_model=CartCheckoutResponse, status_code=status.HTTP_201_CREATED)
-def cart_checkout(payload: CartCheckoutRequest, db: Session = Depends(get_db)):
+def cart_checkout(
+    payload: CartCheckoutRequest,
+    db: Session = Depends(get_db),
+    actor: User = Depends(get_current_user),
+):
     """Check out multiple items to one user atomically in a single cart transaction."""
     if not db.get(User, payload.user_id):
         raise HTTPException(status_code=404, detail="User not found.")
+    _authorize_borrower(actor, payload.user_id)
 
     # Pre-validate ALL items before touching the DB so failures are all-or-nothing.
     rows = _resolve_cart_items(db, payload.items)
@@ -174,6 +212,7 @@ def cart_checkout(payload: CartCheckoutRequest, db: Session = Depends(get_db)):
         tx = Transaction(
             item_id=item.id,
             user_id=payload.user_id,
+            performed_by_id=actor.id,
             type="checkout",
             quantity=qty,
             notes=payload.notes,
@@ -194,15 +233,15 @@ def cart_checkout(payload: CartCheckoutRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/{item_id}", response_model=ItemSchema)
-def get_item(item_id: int, db: Session = Depends(get_db)):
+def get_item(item_id: int, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     item = db.query(Item).options(joinedload(Item.location)).filter(Item.id == item_id).first()
-    if not item:
+    if not item or item.deleted_at is not None:
         raise HTTPException(status_code=404, detail='Item not found.')
     return item
 
 
 @router.put("/{item_id}", response_model=ItemSchema)
-def update_item(item_id: int, payload: ItemUpdate, db: Session = Depends(get_db)):
+def update_item(item_id: int, payload: ItemUpdate, db: Session = Depends(get_db), _: User = Depends(require_staff)):
     item = _get_item_or_404(item_id, db)
     data = payload.model_dump(exclude_unset=True)
     _validate_references(
@@ -231,21 +270,34 @@ def update_item(item_id: int, payload: ItemUpdate, db: Session = Depends(get_db)
 
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_item(item_id: int, db: Session = Depends(get_db)):
+def delete_item(item_id: int, db: Session = Depends(get_db), actor: User = Depends(require_staff)):
     item = _get_item_or_404(item_id, db)
+    if item.deleted_at is not None:
+        return None
+    has_history = db.query(Transaction.id).filter(Transaction.item_id == item.id).first() is not None
+    if has_history:
+        # Preserve the accountability ledger: archive instead of hard delete.
+        item.deleted_at = datetime.now(timezone.utc)
+        item.status = "retired"
+        record_audit(db, actor, "archive_item", "item", item.id, details=item.asset_code)
+        db.commit()
+        return None
+    record_audit(db, actor, "delete_item", "item", item.id, details=item.asset_code)
     db.delete(item)
     db.commit()
     return None
 
 
 @router.post("/{item_id}/checkout", response_model=TransactionSchema, status_code=status.HTTP_201_CREATED)
-def checkout_item(item_id: int, payload: CheckoutRequest, db: Session = Depends(get_db)):
+def checkout_item(item_id: int, payload: CheckoutRequest, db: Session = Depends(get_db), actor: User = Depends(get_current_user)):
     item = db.query(Item).with_for_update().filter(Item.id == item_id).first()
-    if not item:
+    if not item or item.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Item not found.")
     user = db.get(User, payload.user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
+    _authorize_borrower(actor, payload.user_id)
+    _assert_checkoutable(item)
     if payload.quantity > item.available_quantity:
         raise HTTPException(status_code=400, detail="Requested quantity exceeds available quantity.")
 
@@ -256,6 +308,7 @@ def checkout_item(item_id: int, payload: CheckoutRequest, db: Session = Depends(
     transaction = Transaction(
         item_id=item.id,
         user_id=payload.user_id,
+        performed_by_id=actor.id,
         type="checkout",
         quantity=payload.quantity,
         notes=payload.notes,
@@ -272,9 +325,9 @@ def checkout_item(item_id: int, payload: CheckoutRequest, db: Session = Depends(
 
 
 @router.post("/{item_id}/checkin", response_model=TransactionSchema, status_code=status.HTTP_201_CREATED)
-def checkin_item(item_id: int, payload: CheckinRequest, db: Session = Depends(get_db)):
+def checkin_item(item_id: int, payload: CheckinRequest, db: Session = Depends(get_db), actor: User = Depends(get_current_user)):
     item = db.query(Item).with_for_update().filter(Item.id == item_id).first()
-    if not item:
+    if not item or item.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Item not found.")
     user = db.get(User, payload.user_id)
     if not user:
@@ -291,6 +344,7 @@ def checkin_item(item_id: int, payload: CheckinRequest, db: Session = Depends(ge
     transaction = Transaction(
         item_id=item.id,
         user_id=payload.user_id,
+        performed_by_id=actor.id,
         type="checkin",
         quantity=payload.quantity,
         notes=payload.notes,

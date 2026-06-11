@@ -18,14 +18,32 @@ function ProtectedRoute({ children, allowStudent = true }) {
 }
 
 function AppShell() {
-  const { role } = useAuth();
+  const { role, loading } = useAuth();
   const location = useLocation();
   const isLogin = location.pathname === "/login";
+
+  // Don't render routes (or flash the login page) until the session check resolves.
+  if (loading) {
+    return (
+      <div className="app-shell" style={{ alignItems: "center", justifyContent: "center" }}>
+        <div className="loading">Loading…</div>
+      </div>
+    );
+  }
 
   if (isLogin) {
     return (
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    );
+  }
+
+  // Not authenticated → always route to login.
+  if (!role) {
+    return (
+      <Routes>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );

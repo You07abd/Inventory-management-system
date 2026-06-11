@@ -120,12 +120,19 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [mainOpen, setMainOpen] = useState(true);
   const [recordsOpen, setRecordsOpen] = useState(true);
-  const { role, logout } = useAuth();
+  const { user, role, logout } = useAuth();
   const navigate = useNavigate();
   const isStudent = role === "student";
 
-  function handleLogout() {
-    logout();
+  const initials = (user?.name || "?")
+    .split(" ")
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
+  async function handleLogout() {
+    await logout();
     navigate("/login", { replace: true });
   }
 
@@ -257,10 +264,11 @@ export default function Sidebar() {
       <div className="sidebar-footer" style={collapsed ? { justifyContent: 'center' } : {}}>
         {!collapsed && (
           <div className="sidebar-account">
-            <div className="sidebar-avatar">{ROLE_INITIALS[role] ?? "?"}</div>
+            <div className="sidebar-avatar">{initials || ROLE_INITIALS[role] || "?"}</div>
             {!collapsed && (
               <div className="sidebar-account-info">
-                <div className="sidebar-account-name">{ROLE_LABELS[role] ?? "Unknown"}</div>
+                <div className="sidebar-account-name">{user?.name ?? "Unknown"}</div>
+                <div className="sidebar-sub" style={{ margin: "1px 0 2px" }}>{ROLE_LABELS[role] ?? ""}</div>
                 <button type="button" className="sidebar-logout" onClick={handleLogout}>
                   Sign out
                 </button>

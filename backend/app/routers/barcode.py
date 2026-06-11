@@ -1,5 +1,8 @@
 import httpx
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from app.deps import get_current_user
+from app.models.user import User
 
 router = APIRouter(prefix="/barcode-lookup", tags=["barcode"])
 
@@ -7,7 +10,7 @@ UPCITEMDB_URL = "https://api.upcitemdb.com/prod/trial/lookup"
 
 
 @router.get("/")
-def lookup_barcode(code: str = Query(pattern=r"^[A-Za-z0-9\-\.]{1,64}$")):
+def lookup_barcode(code: str = Query(pattern=r"^[A-Za-z0-9\-\.]{1,64}$"), _: User = Depends(get_current_user)):
     try:
         response = httpx.get(
             UPCITEMDB_URL,

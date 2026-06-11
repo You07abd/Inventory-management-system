@@ -3,9 +3,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.deps import get_current_user, require_staff
 from app.models.item import Item
 from app.models.location import Location
 from app.models.unit import Unit
+from app.models.user import User
 from app.schemas.location import Location as LocationSchema
 from app.schemas.location import LocationCreate, LocationUpdate
 
@@ -14,12 +16,12 @@ router = APIRouter(prefix="/locations", tags=["locations"])
 
 
 @router.get("/", response_model=list[LocationSchema])
-def list_locations(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def list_locations(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     return db.query(Location).order_by(Location.name).offset(skip).limit(limit).all()
 
 
 @router.post("/", response_model=LocationSchema, status_code=status.HTTP_201_CREATED)
-def create_location(payload: LocationCreate, db: Session = Depends(get_db)):
+def create_location(payload: LocationCreate, db: Session = Depends(get_db), _: User = Depends(require_staff)):
     location = Location(**payload.model_dump())
     db.add(location)
     try:
@@ -32,7 +34,7 @@ def create_location(payload: LocationCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/{location_id}", response_model=LocationSchema)
-def get_location(location_id: int, db: Session = Depends(get_db)):
+def get_location(location_id: int, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     location = db.get(Location, location_id)
     if not location:
         raise HTTPException(status_code=404, detail="Location not found.")
@@ -40,7 +42,7 @@ def get_location(location_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{location_id}", response_model=LocationSchema)
-def update_location(location_id: int, payload: LocationUpdate, db: Session = Depends(get_db)):
+def update_location(location_id: int, payload: LocationUpdate, db: Session = Depends(get_db), _: User = Depends(require_staff)):
     location = db.get(Location, location_id)
     if not location:
         raise HTTPException(status_code=404, detail="Location not found.")
@@ -56,7 +58,7 @@ def update_location(location_id: int, payload: LocationUpdate, db: Session = Dep
 
 
 @router.delete("/{location_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_location(location_id: int, db: Session = Depends(get_db)):
+def delete_location(location_id: int, db: Session = Depends(get_db), _: User = Depends(require_staff)):
     location = db.get(Location, location_id)
     if not location:
         raise HTTPException(status_code=404, detail="Location not found.")

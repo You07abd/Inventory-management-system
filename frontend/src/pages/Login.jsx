@@ -1,51 +1,30 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-
-const ROLES = [
-  {
-    key: "admin",
-    label: "Admin",
-    description: "Full system access including user management",
-    color: "#2563eb",
-    bg: "#eff6ff",
-    initials: "AD",
-  },
-  {
-    key: "staff",
-    label: "Staff",
-    description: "Manage inventory, transactions, and reports",
-    color: "#7c3aed",
-    bg: "#faf5ff",
-    initials: "SF",
-  },
-  {
-    key: "engineer",
-    label: "Lab Engineer",
-    description: "Equipment maintenance and lab operations",
-    color: "#16a34a",
-    bg: "#f0fdf4",
-    initials: "LE",
-  },
-  {
-    key: "student",
-    label: "Student",
-    description: "Check in and check out equipment only",
-    color: "#ea580c",
-    bg: "#fff7ed",
-    initials: "ST",
-  },
-];
+import { getErrorMessage } from "../api/client";
 
 export default function Login() {
-  const [selected, setSelected] = useState(null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  function handleContinue() {
-    if (!selected) return;
-    login(selected);
-    navigate("/", { replace: true });
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!email || !password) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const user = await login(email.trim(), password);
+      // Students land on the inventory; everyone else on the dashboard.
+      navigate(user.role === "student" ? "/inventory" : "/", { replace: true });
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -65,35 +44,42 @@ export default function Login() {
       </div>
 
       <div className="login-right">
-        <h1 className="login-heading">Who are you?</h1>
-        <p className="login-sub">Select your role to continue.</p>
+        <h1 className="login-heading">Sign in</h1>
+        <p className="login-sub">Use your lab account to continue.</p>
 
-        <div className="role-grid">
-          {ROLES.map((r) => (
-            <button
-              key={r.key}
-              type="button"
-              className={`role-card${selected === r.key ? " selected" : ""}`}
-              onClick={() => setSelected(r.key)}
-            >
-              <div className="role-icon" style={{ background: r.bg }}>
-                <span style={{ color: r.color, fontWeight: 700, fontSize: "13px" }}>
-                  {r.initials}
-                </span>
-              </div>
-              <div className="role-name">{r.label}</div>
-              <div className="role-desc">{r.description}</div>
-            </button>
-          ))}
-        </div>
+        <form className="login-form-fields" onSubmit={handleSubmit} style={{ width: "100%", maxWidth: 380 }}>
+          {error && <div className="alert" style={{ marginBottom: 14 }}>{error}</div>}
 
-        <button
-          className="login-continue"
-          disabled={!selected}
-          onClick={handleContinue}
-        >
-          Continue
-        </button>
+          <div className="form-group" style={{ marginBottom: 14 }}>
+            <label className="form-label" htmlFor="email">Email</label>
+            <input
+              id="email"
+              className="form-input"
+              type="email"
+              autoComplete="username"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="form-group" style={{ marginBottom: 4 }}>
+            <label className="form-label" htmlFor="password">Password</label>
+            <input
+              id="password"
+              className="form-input"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+
+          <button className="login-continue" type="submit" disabled={submitting || !email || !password}>
+            {submitting ? "Signing in…" : "Sign in"}
+          </button>
+        </form>
       </div>
     </div>
   );

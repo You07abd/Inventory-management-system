@@ -1,0 +1,25 @@
+# Secrets — never bake into image layers
+.env
+.env.*
+!.env.example
+!.env.production.example
+*.env~
+
+# Virtualenvs / caches
+venv/
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+
+# Local tooling
+.claude/
+.pytest_cache/
+.mypy_cache/
+*.sqlite3
+*.db
+
+# VCS / editor
+.git/
+.gitignore
+.vscode/

@@ -2,9 +2,10 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: inv_user
-      POSTGRES_PASSWORD: inv_pass
-      POSTGRES_DB: drone_inventory
+      # Set these as secrets in Coolify / a local .env — never hardcode real values.
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-drone_inventory}
     volumes:
       - db_data:/var/lib/postgresql/data
     networks:
@@ -15,8 +16,13 @@ services:
     build:
       context: ./backend
     environment:
-      DATABASE_URL: postgresql+psycopg2://inv_user:inv_pass@db:5432/drone_inventory
-      FRONTEND_ORIGIN: https://aryx.dev
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-drone_inventory}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-https://aryx.dev}
+      ENV: ${ENV:-production}
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-.aryx.dev}
     depends_on:
       - db
     networks:

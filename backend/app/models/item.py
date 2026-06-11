@@ -34,6 +34,8 @@ class Item(Base):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+    # Soft delete: archived items are hidden from listings but keep their history.
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     current_holder = relationship("User", back_populates="held_items", foreign_keys=[current_holder_id])
     category = relationship("Category", back_populates="items")

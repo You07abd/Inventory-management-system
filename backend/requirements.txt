@@ -3,8 +3,11 @@ uvicorn
 sqlalchemy
 psycopg2-binary
 pydantic
+pydantic[email]
 python-dotenv
 alembic
 qrcode[pil]
 Pillow
 httpx
+argon2-cffi
+PyJWT

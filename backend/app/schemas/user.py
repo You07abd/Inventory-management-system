@@ -11,13 +11,14 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    pass
+    password: str | None = Field(default=None, min_length=10)
 
 
 class UserUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1)
     email: str | None = None
     role: Literal["student", "staff", "admin"] | None = None
+    password: str | None = Field(default=None, min_length=10)
 
 
 class User(UserBase):

@@ -9,13 +9,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "latest",
-    "@zxing/browser": "^0.2.0",
-    "axios": "latest",
-    "jsqr": "^1.4.0",
-    "react": "latest",
-    "react-dom": "latest",
-    "react-router-dom": "latest",
-    "vite": "latest"
+    "@vitejs/plugin-react": "6.0.2",
+    "@zxing/browser": "0.2.0",
+    "axios": "1.16.1",
+    "jsqr": "1.4.0",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "react-router-dom": "7.15.1",
+    "vite": "8.0.14"
   }
 }

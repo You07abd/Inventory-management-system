@@ -1,27 +1,55 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
+import { authApi } from "../api/auth";
+import { setUnauthorizedHandler } from "../api/client";
 
 const AuthContext = createContext(null);
 
-const ROLES = ["admin", "staff", "engineer", "student"];
-
 export function AuthProvider({ children }) {
-  const [role, setRole] = useState(() => {
-    const saved = sessionStorage.getItem("dl_role");
-    return ROLES.includes(saved) ? saved : null;
-  });
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  function login(selectedRole) {
-    sessionStorage.setItem("dl_role", selectedRole);
-    setRole(selectedRole);
+  // On mount, ask the backend who we are (validates the httpOnly session cookie).
+  useEffect(() => {
+    let active = true;
+    authApi
+      .me()
+      .then((u) => {
+        if (active) setUser(u);
+      })
+      .catch(() => {
+        if (active) setUser(null);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // When any request 401s, drop the user so the app routes back to login.
+  useEffect(() => {
+    setUnauthorizedHandler(() => setUser(null));
+  }, []);
+
+  async function login(email, password) {
+    const u = await authApi.login(email, password);
+    setUser(u);
+    return u;
   }
 
-  function logout() {
-    sessionStorage.removeItem("dl_role");
-    setRole(null);
+  async function logout() {
+    try {
+      await authApi.logout();
+    } finally {
+      setUser(null);
+    }
   }
+
+  const role = user?.role ?? null;
 
   return (
-    <AuthContext.Provider value={{ role, login, logout }}>
+    <AuthContext.Provider value={{ user, role, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

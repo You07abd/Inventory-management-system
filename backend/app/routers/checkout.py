@@ -6,11 +6,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
+from app.deps import get_current_user
 from app.models.item import Item
 from app.models.transaction import Transaction
 from app.models.unit import Unit
 from app.models.user import User
-from app.routers.items import _set_status_from_availability
+from app.routers.items import _assert_checkoutable, _authorize_borrower, _set_status_from_availability
 from app.schemas.transaction import Transaction as TransactionSchema
 
 router = APIRouter(prefix="/checkout", tags=["checkout"])
@@ -35,13 +36,14 @@ class UnifiedCartResponse(BaseModel):
 
 
 @router.post("/unified-cart", response_model=UnifiedCartResponse, status_code=status.HTTP_201_CREATED)
-def unified_cart_checkout(payload: UnifiedCartRequest, db: Session = Depends(get_db)):
+def unified_cart_checkout(payload: UnifiedCartRequest, db: Session = Depends(get_db), actor: User = Depends(get_current_user)):
     if not payload.unit_ids and not payload.bulk_items:
         raise HTTPException(status_code=400, detail="Cart is empty.")
 
     user = db.get(User, payload.user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
+    _authorize_borrower(actor, payload.user_id)
 
     # Track in-flight quantity reductions by item_id to detect cross-list conflicts
     in_flight: dict[int, int] = {}
@@ -53,7 +55,8 @@ def unified_cart_checkout(payload: UnifiedCartRequest, db: Session = Depends(get
         if uid in seen_unit_ids:
             raise HTTPException(status_code=400, detail=f"Unit {uid} appears more than once.")
         seen_unit_ids.add(uid)
-        unit = db.query(Unit).with_for_update().options(joinedload(Unit.item)).filter(Unit.id == uid).first()
+        # FOR UPDATE OF units: Postgres rejects FOR UPDATE on the nullable side of the joinedload's outer join.
+        unit = db.query(Unit).with_for_update(of=Unit).options(joinedload(Unit.item)).filter(Unit.id == uid).first()
         if not unit:
             raise HTTPException(status_code=400, detail=f"Unit {uid} not found.")
         if not unit.item.track_units:
@@ -63,6 +66,8 @@ def unified_cart_checkout(payload: UnifiedCartRequest, db: Session = Depends(get
             )
         if unit.status != "available":
             raise HTTPException(status_code=400, detail=f"Unit {unit.asset_code} is not available.")
+        if unit.condition == "damaged":
+            raise HTTPException(status_code=400, detail=f"Unit {unit.asset_code} is damaged and cannot be checked out.")
         in_flight[unit.item_id] = in_flight.get(unit.item_id, 0) + 1
         if in_flight[unit.item_id] > unit.item.available_quantity:
             raise HTTPException(
@@ -83,6 +88,7 @@ def unified_cart_checkout(payload: UnifiedCartRequest, db: Session = Depends(get
             raise HTTPException(status_code=400, detail=f"Item {entry.item_id} not found.")
         if item.track_units:
             raise HTTPException(status_code=400, detail=f"Item {item.asset_code} requires unit-level tracking.")
+        _assert_checkoutable(item)
         already_taken = in_flight.get(entry.item_id, 0)
         if entry.quantity + already_taken > item.available_quantity:
             raise HTTPException(
@@ -107,6 +113,7 @@ def unified_cart_checkout(payload: UnifiedCartRequest, db: Session = Depends(get
             item_id=unit.item_id,
             unit_id=unit.id,
             user_id=payload.user_id,
+            performed_by_id=actor.id,
             type="checkout",
             quantity=1,
             session_id=session_id,
@@ -125,6 +132,7 @@ def unified_cart_checkout(payload: UnifiedCartRequest, db: Session = Depends(get
             item_id=item.id,
             unit_id=None,
             user_id=payload.user_id,
+            performed_by_id=actor.id,
             type="checkout",
             quantity=qty,
             session_id=session_id,

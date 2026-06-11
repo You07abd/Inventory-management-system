@@ -3,8 +3,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.deps import get_current_user, require_staff
 from app.models.category import Category
 from app.models.item import Item
+from app.models.user import User
 from app.schemas.category import Category as CategorySchema
 from app.schemas.category import CategoryCreate, CategoryUpdate
 
@@ -13,12 +15,12 @@ router = APIRouter(prefix="/categories", tags=["categories"])
 
 
 @router.get("/", response_model=list[CategorySchema])
-def list_categories(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def list_categories(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     return db.query(Category).order_by(Category.name).offset(skip).limit(limit).all()
 
 
 @router.post("/", response_model=CategorySchema, status_code=status.HTTP_201_CREATED)
-def create_category(payload: CategoryCreate, db: Session = Depends(get_db)):
+def create_category(payload: CategoryCreate, db: Session = Depends(get_db), _: User = Depends(require_staff)):
     category = Category(**payload.model_dump())
     db.add(category)
     try:
@@ -31,7 +33,7 @@ def create_category(payload: CategoryCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/{category_id}", response_model=CategorySchema)
-def get_category(category_id: int, db: Session = Depends(get_db)):
+def get_category(category_id: int, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     category = db.get(Category, category_id)
     if not category:
         raise HTTPException(status_code=404, detail="Category not found.")
@@ -39,7 +41,7 @@ def get_category(category_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{category_id}", response_model=CategorySchema)
-def update_category(category_id: int, payload: CategoryUpdate, db: Session = Depends(get_db)):
+def update_category(category_id: int, payload: CategoryUpdate, db: Session = Depends(get_db), _: User = Depends(require_staff)):
     category = db.get(Category, category_id)
     if not category:
         raise HTTPException(status_code=404, detail="Category not found.")
@@ -55,7 +57,7 @@ def update_category(category_id: int, payload: CategoryUpdate, db: Session = Dep
 
 
 @router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_category(category_id: int, db: Session = Depends(get_db)):
+def delete_category(category_id: int, db: Session = Depends(get_db), _: User = Depends(require_staff)):
     category = db.get(Category, category_id)
     if not category:
         raise HTTPException(status_code=404, detail="Category not found.")

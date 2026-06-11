@@ -4,7 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
+from app.deps import get_current_user
 from app.models.transaction import Transaction
+from app.models.user import User
 from app.schemas.transaction import Transaction as TransactionSchema
 
 
@@ -20,6 +22,7 @@ def list_transactions(
     skip: int = 0,
     limit: int = 200,
     db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
 ):
     """
     status values:
@@ -56,7 +59,7 @@ def list_transactions(
 
 
 @router.get("/{transaction_id}", response_model=TransactionSchema)
-def get_transaction(transaction_id: int, db: Session = Depends(get_db)):
+def get_transaction(transaction_id: int, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     transaction = (
         db.query(Transaction)
         .options(joinedload(Transaction.unit), joinedload(Transaction.user))

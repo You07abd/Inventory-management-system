@@ -9,7 +9,7 @@ from sqlalchemy import engine_from_config, pool
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 from app.database import Base
-from app.models import Category, Item, Location, Transaction, User
+from app.models import AuditLog, Category, Item, Location, Transaction, Unit, User
 
 
 config = context.config
@@ -22,7 +22,7 @@ if database_url:
     config.set_main_option("sqlalchemy.url", database_url)
 
 target_metadata = Base.metadata
-_models = (Category, Item, Location, Transaction, User)
+_models = (AuditLog, Category, Item, Location, Transaction, Unit, User)
 
 
 def run_migrations_offline() -> None:

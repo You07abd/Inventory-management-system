@@ -11,7 +11,10 @@ class Transaction(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     item_id: Mapped[int] = mapped_column(ForeignKey("items.id"), nullable=False, index=True)
+    # Borrower: who the item is checked out to / returned by.
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    # Actor: the authenticated user who performed the action (staff at the desk, etc.).
+    performed_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     type: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -28,7 +31,8 @@ class Transaction(Base):
     )
 
     item = relationship("Item", back_populates="transactions")
-    user = relationship("User", back_populates="transactions")
+    user = relationship("User", back_populates="transactions", foreign_keys=[user_id])
+    performed_by = relationship("User", foreign_keys=[performed_by_id])
     unit = relationship("Unit", back_populates="transactions")
 
     @property
@@ -38,3 +42,7 @@ class Transaction(Base):
     @property
     def user_name(self) -> str | None:
         return self.user.name if self.user else None
+
+    @property
+    def performed_by_name(self) -> str | None:
+        return self.performed_by.name if self.performed_by else None

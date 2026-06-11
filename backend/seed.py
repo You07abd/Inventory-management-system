@@ -4,6 +4,7 @@ from app.models.item import Item
 from app.models.location import Location
 from app.models.user import User
 from app.routers.items import generate_asset_code
+from app.security import hash_password
 
 
 def get_or_create(db, model, defaults=None, **filters):
@@ -49,16 +50,18 @@ def seed():
             defaults={"description": "Locked cabinet for small accessories and tools."})
 
         # --- Users ---
+        # Demo password for every seeded account. CHANGE before any real deployment.
+        demo_pw = hash_password("password123")
         admin = get_or_create(db, User, email="admin@dronelab.com",
-            defaults={"name": "Lab Admin", "role": "admin"})
+            defaults={"name": "Lab Admin", "role": "admin", "password_hash": demo_pw})
         get_or_create(db, User, email="ahmed.hassan@dronelab.com",
-            defaults={"name": "Ahmed Hassan", "role": "instructor"})
+            defaults={"name": "Ahmed Hassan", "role": "staff", "password_hash": demo_pw})
         get_or_create(db, User, email="sara.ali@dronelab.com",
-            defaults={"name": "Sara Ali", "role": "student"})
+            defaults={"name": "Sara Ali", "role": "student", "password_hash": demo_pw})
         get_or_create(db, User, email="omar.k@dronelab.com",
-            defaults={"name": "Omar Khalid", "role": "student"})
+            defaults={"name": "Omar Khalid", "role": "student", "password_hash": demo_pw})
         get_or_create(db, User, email="lena.m@dronelab.com",
-            defaults={"name": "Lena Mahmoud", "role": "student"})
+            defaults={"name": "Lena Mahmoud", "role": "student", "password_hash": demo_pw})
 
         # --- Items ---
         seed_items = [

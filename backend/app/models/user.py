@@ -12,6 +12,7 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(150), nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     role: Mapped[str] = mapped_column(String(80), nullable=False, default="student")
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
@@ -20,4 +21,9 @@ class User(Base):
     )
 
     held_items = relationship("Item", back_populates="current_holder", foreign_keys="Item.current_holder_id")
-    transactions = relationship("Transaction", back_populates="user", cascade="all, delete-orphan")
+    transactions = relationship(
+        "Transaction",
+        back_populates="user",
+        foreign_keys="Transaction.user_id",
+        cascade="all, delete-orphan",
+    )

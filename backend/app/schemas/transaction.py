@@ -29,6 +29,8 @@ class Transaction(TransactionBase):
     created_at: datetime
     session_id: str | None = None
     user_name: str | None = None
+    performed_by_id: int | None = None
+    performed_by_name: str | None = None
 
 
 # Cart checkout schemas
