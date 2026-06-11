@@ -1,3 +1,7 @@
+import os
+import secrets
+import sys
+
 from app.database import Base, SessionLocal, engine
 from app.models.category import Category
 from app.models.item import Item
@@ -5,6 +9,30 @@ from app.models.location import Location
 from app.models.user import User
 from app.routers.items import generate_asset_code
 from app.security import hash_password
+
+
+WEAK_SEED_PASSWORDS = {"password123", "password", "admin", "123456"}
+
+
+def resolve_seed_password(env_var):
+    password = os.environ.get(env_var)
+    if password is None:
+        password = secrets.token_urlsafe(16)
+        print(f"Generated {env_var} for seed run: {password}")
+    return password
+
+
+SEED_ADMIN_PASSWORD = resolve_seed_password("SEED_ADMIN_PASSWORD")
+SEED_USER_PASSWORD = resolve_seed_password("SEED_USER_PASSWORD")
+
+if os.environ.get("ENV") == "production":
+    for env_var, password in (
+        ("SEED_ADMIN_PASSWORD", SEED_ADMIN_PASSWORD),
+        ("SEED_USER_PASSWORD", SEED_USER_PASSWORD),
+    ):
+        if password in WEAK_SEED_PASSWORDS or len(password) < 12:
+            print(f"Error: {env_var} must not be weak or shorter than 12 characters in production.")
+            sys.exit(1)
 
 
 def get_or_create(db, model, defaults=None, **filters):
@@ -50,18 +78,18 @@ def seed():
             defaults={"description": "Locked cabinet for small accessories and tools."})
 
         # --- Users ---
-        # Demo password for every seeded account. CHANGE before any real deployment.
-        demo_pw = hash_password("password123")
+        admin_pw = hash_password(SEED_ADMIN_PASSWORD)
+        user_pw = hash_password(SEED_USER_PASSWORD)
         admin = get_or_create(db, User, email="admin@dronelab.com",
-            defaults={"name": "Lab Admin", "role": "admin", "password_hash": demo_pw})
+            defaults={"name": "Lab Admin", "role": "admin", "password_hash": admin_pw})
         get_or_create(db, User, email="ahmed.hassan@dronelab.com",
-            defaults={"name": "Ahmed Hassan", "role": "staff", "password_hash": demo_pw})
+            defaults={"name": "Ahmed Hassan", "role": "staff", "password_hash": user_pw})
         get_or_create(db, User, email="sara.ali@dronelab.com",
-            defaults={"name": "Sara Ali", "role": "student", "password_hash": demo_pw})
+            defaults={"name": "Sara Ali", "role": "student", "password_hash": user_pw})
         get_or_create(db, User, email="omar.k@dronelab.com",
-            defaults={"name": "Omar Khalid", "role": "student", "password_hash": demo_pw})
+            defaults={"name": "Omar Khalid", "role": "student", "password_hash": user_pw})
         get_or_create(db, User, email="lena.m@dronelab.com",
-            defaults={"name": "Lena Mahmoud", "role": "student", "password_hash": demo_pw})
+            defaults={"name": "Lena Mahmoud", "role": "student", "password_hash": user_pw})
 
         # --- Items ---
         seed_items = [

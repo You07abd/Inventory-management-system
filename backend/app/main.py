@@ -58,8 +58,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 app.add_middleware(SecurityHeadersMiddleware)
 
 # Explicit allowlist — never use "*" with credentials.
-frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
-allowed_origins = [frontend_origin, "http://localhost:5173", "http://localhost:5174", "http://localhost:5175"]
+frontend_origin = os.getenv("FRONTEND_ORIGIN")
+allowed_origins = [frontend_origin] if frontend_origin else []
+if os.environ.get("ENV", "development") != "production":
+    allowed_origins.extend(["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"])
 app.add_middleware(
     CORSMiddleware,
     allow_origins=sorted(set(allowed_origins)),

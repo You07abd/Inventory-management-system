@@ -134,7 +134,11 @@ When you're ready to move your local data to the server.
 
    You can find these credentials in the Coolify dashboard → your PostgreSQL service → **Connection details**.
 
-4. Restore on the server.
+4. Set or rotate seed account passwords before public access.
+
+   Before the API is publicly reachable, you **MUST** either set strong `SEED_ADMIN_PASSWORD` and `SEED_USER_PASSWORD` values in `backend/.env.production`, or rotate the seeded admin/user passwords through the API or directly in the database immediately after seeding. A demo-seeded database is not production-ready until these credentials have been replaced with strong secrets.
+
+5. Restore on the server.
 
    SSH into the server and run:
    ```bash
@@ -192,6 +196,7 @@ cp backend/.env.production backend/.env
 ```
 
 Open `backend/.env` and fill in your Coolify PostgreSQL credentials.
+Before the API is publicly reachable, set strong `SEED_ADMIN_PASSWORD` and `SEED_USER_PASSWORD` values or rotate the seeded passwords through the API/DB after seeding. Do not treat demo-seeded credentials as production-ready.
 
 ---
 

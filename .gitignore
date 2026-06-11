@@ -14,3 +14,6 @@ frontend/dist/
 .superpowers/
 docs/superpowers/
 docs/codex-setup.md
+.playwright-mcp/
+REMEDIATION_STATUS.md
+PROJECT_REVIEW.md
