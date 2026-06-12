@@ -1,16 +1,35 @@
-from datetime import datetime, timezone
+import csv
+from datetime import date, datetime, time, timezone
+import io
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.deps import get_current_user
+from app.deps import get_current_user, require_staff
+from app.models.item import Item
 from app.models.transaction import Transaction
 from app.models.user import User
 from app.schemas.transaction import Transaction as TransactionSchema
 
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
+
+
+def _csv_value(value: object) -> object:
+    return "" if value is None else value
+
+
+def _csv_response(rows: list[list[object]], filename: str) -> StreamingResponse:
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerows(rows)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
 
 
 @router.get("/", response_model=list[TransactionSchema])
@@ -56,6 +75,55 @@ def list_transactions(
     elif status == "returned":
         query = query.filter(Transaction.returned_at.isnot(None))
     return query.order_by(Transaction.created_at.desc()).offset(skip).limit(limit).all()
+
+
+@router.get("/export")
+def export_transactions(
+    start_date: date | None = None,
+    end_date: date | None = None,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_staff),
+):
+    query = (
+        db.query(Transaction)
+        .join(Item, Transaction.item_id == Item.id)
+        .options(joinedload(Transaction.item), joinedload(Transaction.user))
+        .filter(Item.deleted_at.is_(None))
+    )
+    if start_date is not None:
+        query = query.filter(Transaction.created_at >= datetime.combine(start_date, time.min))
+    if end_date is not None:
+        query = query.filter(Transaction.created_at <= datetime.combine(end_date, time.max))
+
+    transactions = query.order_by(Transaction.created_at.desc()).all()
+    rows: list[list[object]] = [
+        [
+            "id",
+            "created_at",
+            "action",
+            "item_asset_code",
+            "item_name",
+            "user_name",
+            "quantity",
+            "destination",
+            "notes",
+        ]
+    ]
+    rows.extend(
+        [
+            transaction.id,
+            transaction.created_at.isoformat(),
+            transaction.type,
+            _csv_value(transaction.item.asset_code if transaction.item else None),
+            _csv_value(transaction.item.name if transaction.item else None),
+            _csv_value(transaction.user.name if transaction.user else None),
+            transaction.quantity,
+            _csv_value(transaction.destination),
+            _csv_value(transaction.notes),
+        ]
+        for transaction in transactions
+    )
+    return _csv_response(rows, "transactions.csv")
 
 
 @router.get("/{transaction_id}", response_model=TransactionSchema)

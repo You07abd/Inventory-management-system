@@ -7,8 +7,10 @@ import { locationsApi } from "../api/locations";
 import { transactionsApi } from "../api/transactions";
 import { unitsApi } from "../api/units";
 import { usersApi } from "../api/users";
+import AdjustStockModal from "../components/AdjustStockModal.jsx";
 import CheckinModal from "../components/CheckinModal.jsx";
 import CheckoutModal from "../components/CheckoutModal.jsx";
+import { formatMoney, isLowStock } from "../utils/stock";
 
 function findName(collection, id, fallback = "Unassigned") {
   if (id == null) return fallback;
@@ -37,6 +39,10 @@ export default function ItemDetail() {
   const [transactions, setTransactions] = useState([]);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkinOpen, setCheckinOpen] = useState(false);
+  const [adjustOpen, setAdjustOpen] = useState(false);
+  const [editingProc, setEditingProc] = useState(false);
+  const [procForm, setProcForm] = useState({ min_quantity: "", unit_cost: "", supplier: "" });
+  const [savingProc, setSavingProc] = useState(false);
   const [unitError, setUnitError] = useState("");
   const [showAddUnit, setShowAddUnit] = useState(false);
   const [addUnitForm, setAddUnitForm] = useState({ serial_number: "", condition: "good", location_id: "" });
@@ -134,6 +140,42 @@ export default function ItemDetail() {
       await load();
     } catch (err) {
       setError(getErrorMessage(err));
+    }
+  }
+
+  async function adjustStock(payload) {
+    try {
+      await itemsApi.adjust(item.id, payload);
+      setAdjustOpen(false);
+      await load();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  }
+
+  function openProcEdit() {
+    setProcForm({
+      min_quantity: item.min_quantity ?? "",
+      unit_cost: item.unit_cost ?? "",
+      supplier: item.supplier ?? "",
+    });
+    setEditingProc(true);
+  }
+
+  async function saveProc() {
+    setSavingProc(true);
+    try {
+      await itemsApi.update(item.id, {
+        min_quantity: procForm.min_quantity !== "" ? Number(procForm.min_quantity) : null,
+        unit_cost: procForm.unit_cost !== "" ? Number(procForm.unit_cost) : null,
+        supplier: procForm.supplier || null,
+      });
+      setEditingProc(false);
+      await load();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setSavingProc(false);
     }
   }
 
@@ -476,10 +518,14 @@ export default function ItemDetail() {
                 )}
                 {visibleTransactions.map((tx) => {
                   const isCheckoutTx = tx.type === 'checkout';
-                  const typeLabel = isCheckoutTx ? 'Check Out' : 'Check In';
+                  const isAdjustmentTx = tx.type === 'adjust';
+                  const typeLabel = isCheckoutTx ? 'Check Out' : isAdjustmentTx ? 'Stock Adjustment' : 'Check In';
                   return (
                     <div key={tx.id} className='activity-row'>
-                      <div className={`activity-dot activity-dot--${isCheckoutTx ? 'out' : 'in'}`} />
+                      <div
+                        className={`activity-dot activity-dot--${isCheckoutTx ? 'out' : 'in'}`}
+                        style={isAdjustmentTx ? { background: '#94a3b8' } : undefined}
+                      />
                       <div>
                         <div className='activity-text'>
                           <strong>{typeLabel}</strong>
@@ -574,6 +620,7 @@ export default function ItemDetail() {
                       <span style={{ color: 'var(--color-muted-2)', fontWeight: 400, fontSize: '12px' }}> of {item.quantity} available</span>
                     </span>
                     <span className={`badge ${itemStatus.badgeClass}`}>{itemStatus.label}</span>
+                    {isLowStock(item) && <span className="badge badge--fair">Low Stock</span>}
                   </div>
                 </div>
                 {item.description && (
@@ -613,6 +660,81 @@ export default function ItemDetail() {
             </div>
 
             <div className='panel'>
+              <div className='panel-head'>
+                <h3>Procurement</h3>
+                {!editingProc && (
+                  <button
+                    className='btn btn-secondary'
+                    style={{ fontSize: '10px', padding: '2px 8px' }}
+                    onClick={openProcEdit}
+                  >
+                    Edit
+                  </button>
+                )}
+              </div>
+              <div className='panel-body' style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {editingProc ? (
+                  <>
+                    <div className='form-group'>
+                      <label className='form-label'>Reorder Point</label>
+                      <input className='form-input' type='number' min='0' value={procForm.min_quantity}
+                        onChange={(e) => setProcForm((f) => ({ ...f, min_quantity: e.target.value }))}
+                        placeholder='No alert' />
+                    </div>
+                    <div className='form-group'>
+                      <label className='form-label'>Unit Cost</label>
+                      <input className='form-input' type='number' min='0' step='0.01' value={procForm.unit_cost}
+                        onChange={(e) => setProcForm((f) => ({ ...f, unit_cost: e.target.value }))}
+                        placeholder='0.00' />
+                    </div>
+                    <div className='form-group'>
+                      <label className='form-label'>Supplier</label>
+                      <input className='form-input' value={procForm.supplier}
+                        onChange={(e) => setProcForm((f) => ({ ...f, supplier: e.target.value }))}
+                        placeholder='Optional' />
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                      <button className='btn btn-secondary' onClick={() => setEditingProc(false)}>Cancel</button>
+                      <button className='btn btn-primary' onClick={saveProc} disabled={savingProc}>
+                        {savingProc ? 'Saving…' : 'Save'}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className='sidebar-field'>
+                      <div className='sidebar-field-label'>Reorder Point</div>
+                      <div className='sidebar-field-value'>
+                        {item.min_quantity != null ? (
+                          <>
+                            {item.min_quantity}
+                            {isLowStock(item) && <span className='badge badge--fair' style={{ marginLeft: '8px' }}>Below threshold</span>}
+                          </>
+                        ) : (
+                          <span style={{ color: 'var(--color-muted-2)' }}>Not set</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className='sidebar-field'>
+                      <div className='sidebar-field-label'>Unit Cost</div>
+                      <div className='sidebar-field-value'>{item.unit_cost != null ? formatMoney(item.unit_cost) : <span style={{ color: 'var(--color-muted-2)' }}>Not set</span>}</div>
+                    </div>
+                    {item.unit_cost != null && (
+                      <div className='sidebar-field'>
+                        <div className='sidebar-field-label'>Total Value</div>
+                        <div className='sidebar-field-value' style={{ fontWeight: 700 }}>{formatMoney(Number(item.unit_cost) * item.quantity)}</div>
+                      </div>
+                    )}
+                    <div className='sidebar-field'>
+                      <div className='sidebar-field-label'>Supplier</div>
+                      <div className='sidebar-field-value'>{item.supplier || <span style={{ color: 'var(--color-muted-2)' }}>Not set</span>}</div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className='panel'>
               <div className='panel-head'><h3>Actions</h3></div>
               <div className='panel-body' style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <button
@@ -633,6 +755,15 @@ export default function ItemDetail() {
                 >
                   {switchingMode ? 'Switching...' : '⇄ Switch tracking mode'}
                 </button>
+                {!item.track_units && (
+                  <button
+                    className='btn btn-secondary'
+                    style={{ width: '100%', textAlign: 'left', fontSize: '12px' }}
+                    onClick={() => setAdjustOpen(true)}
+                  >
+                    ± Adjust stock
+                  </button>
+                )}
               </div>
             </div>
 
@@ -747,6 +878,7 @@ export default function ItemDetail() {
 
       {checkoutOpen && <CheckoutModal item={checkoutOpen ? item : null} users={users} onClose={() => setCheckoutOpen(false)} onSubmit={checkout} />}
       {checkinOpen && <CheckinModal item={checkinOpen ? item : null} users={users} onClose={() => setCheckinOpen(false)} onSubmit={checkin} />}
+      {adjustOpen && <AdjustStockModal item={item} onClose={() => setAdjustOpen(false)} onSubmit={adjustStock} />}
     </>
   );
 }

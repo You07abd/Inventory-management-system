@@ -1,8 +1,9 @@
 import { useEffect, useState, useMemo } from "react";
-import { getErrorMessage } from "../api/client";
+import { downloadFile, getErrorMessage } from "../api/client";
 import { itemsApi } from "../api/items";
 import { usersApi } from "../api/users";
 import { transactionsApi } from "../api/transactions";
+import { useAuth } from "../context/AuthContext";
 
 const STATUS_TABS = [
   { key: "",         label: "All" },
@@ -17,7 +18,15 @@ const OVERDUE_ROW_STYLE = { borderLeft: "3px solid #ef4444", background: "#fff5f
 const OVERDUE_TEXT_STYLE = { color: "#ef4444", fontWeight: 600 };
 const OVERDUE_BADGE_STYLE = { fontSize: "10px", fontWeight: 700, color: "#ef4444", textTransform: "uppercase", letterSpacing: "0.04em" };
 
+function typeBadge(type) {
+  if (type === "checkout") return { className: "badge--checked-out", label: "Check Out" };
+  if (type === "adjust") return { className: "badge--not-in-lab", label: "Adjustment" };
+  return { className: "badge--available", label: "Check In" };
+}
+
 export default function Transactions() {
+  const { role } = useAuth();
+  const isStudent = role === "student";
   const [transactions, setTransactions] = useState([]);
   const [items, setItems] = useState([]);
   const [users, setUsers] = useState([]);
@@ -26,6 +35,19 @@ export default function Transactions() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+
+  async function exportCsv() {
+    setExporting(true);
+    setError("");
+    try {
+      await downloadFile("/transactions/export", "transactions.csv");
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setExporting(false);
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -77,6 +99,13 @@ export default function Transactions() {
           <span className="topbar-breadcrumb">Records</span>
           <span className="topbar-title">Transactions</span>
         </div>
+        {!isStudent && (
+          <div className="topbar-actions">
+            <button type="button" className="btn btn-secondary" onClick={exportCsv} disabled={exporting}>
+              {exporting ? "Exporting…" : "Export CSV"}
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="page-content">
@@ -159,8 +188,8 @@ export default function Transactions() {
                     >
                       <td>
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "3px" }}>
-                          <span className={`badge ${tx.type === "checkout" ? "badge--checked-out" : "badge--available"}`}>
-                            {tx.type === "checkout" ? "Check Out" : "Check In"}
+                          <span className={`badge ${typeBadge(tx.type).className}`}>
+                            {typeBadge(tx.type).label}
                           </span>
                           {overdue && (
                             <span style={OVERDUE_BADGE_STYLE}>

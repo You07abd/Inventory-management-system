@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { isLowStock } from "../utils/stock";
 
 function nameById(collection, id, fallback = "—") {
   if (id == null) return fallback;
@@ -98,6 +99,22 @@ export default function ItemTable({ items, categories = [], locations = [], onCh
               <td>{nameById(locations, item.location_id)}</td>
               <td style={{ fontVariantNumeric: "tabular-nums" }}>
                 {item.available_quantity} / {item.quantity}
+                {isLowStock(item) && (
+                  <span style={{
+                    marginLeft: "6px",
+                    padding: "1px 6px",
+                    borderRadius: "999px",
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    letterSpacing: "0.04em",
+                    textTransform: "uppercase",
+                    background: "#fffbeb",
+                    color: "#92400e",
+                    border: "1px solid #fde68a",
+                  }}>
+                    Low
+                  </span>
+                )}
               </td>
               <td>
                 {item.condition !== "good" && (

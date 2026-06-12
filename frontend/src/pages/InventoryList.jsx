@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { categoriesApi } from "../api/categories";
-import { getErrorMessage } from "../api/client";
+import { downloadFile, getErrorMessage } from "../api/client";
 import { itemsApi } from "../api/items";
 import { locationsApi } from "../api/locations";
 import { usersApi } from "../api/users";
 import CheckinModal from "../components/CheckinModal.jsx";
 import CheckoutModal from "../components/CheckoutModal.jsx";
+import ImportCsvModal from "../components/ImportCsvModal.jsx";
 import ItemTable from "../components/ItemTable.jsx";
+import { isLowStock } from "../utils/stock";
 import { useAuth } from "../context/AuthContext";
 import { getCategoryMeta, UNCATEGORIZED_CATEGORY } from "../utils/categoryMeta.jsx";
 import { barcodeApi } from "../api/barcode";
@@ -23,6 +25,9 @@ const emptyItemForm = {
   category_id: "",
   location_id: "",
   track_units: true,
+  min_quantity: "",
+  unit_cost: "",
+  supplier: "",
 };
 
 function getItemStatus(item) {
@@ -34,8 +39,10 @@ function getItemStatus(item) {
 
 export default function InventoryList({ initialMode = "browse" }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { role } = useAuth();
   const isStudent = role === "student";
+  const startLowStock = new URLSearchParams(location.search).get("low_stock") === "1";
 
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -55,7 +62,9 @@ export default function InventoryList({ initialMode = "browse" }) {
   const [trackingOverridden, setTrackingOverridden] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState(null);
   const [locationFilter, setLocationFilter] = useState(null);
-  const [statusFilter,   setStatusFilter]   = useState("");
+  const [statusFilter,   setStatusFilter]   = useState(startLowStock ? "low" : "");
+  const [importOpen, setImportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState({ status: false, category: false, location: false, condition: false });
   const [scannerMode, setScannerMode] = useState(null); // 'prefill' | 'serial' | null
   const [scanStatus, setScanStatus] = useState(null);   // { found: bool, message: string } | null
@@ -122,6 +131,7 @@ export default function InventoryList({ initialMode = "browse" }) {
       if (statusFilter === "partial" && !(item.available_quantity > 0 && item.available_quantity < item.quantity)) return false;
       if (statusFilter === "out" && !(item.available_quantity === 0 && item.quantity > 0)) return false;
       if (statusFilter === "not-in-lab" && item.quantity !== 0) return false;
+      if (statusFilter === "low" && !isLowStock(item)) return false;
       if (!q) return true;
       return [item.asset_code, item.name, item.serial_number, item.condition]
         .filter(Boolean).some((v) => v.toLowerCase().includes(q));
@@ -233,6 +243,9 @@ export default function InventoryList({ initialMode = "browse" }) {
         category_id: itemForm.category_id ? Number(itemForm.category_id) : null,
         location_id: itemForm.location_id ? Number(itemForm.location_id) : null,
         track_units: itemForm.track_units,
+        min_quantity: itemForm.min_quantity !== "" ? Number(itemForm.min_quantity) : null,
+        unit_cost: itemForm.unit_cost !== "" ? Number(itemForm.unit_cost) : null,
+        supplier: itemForm.supplier || null,
       });
       setItemForm(emptyItemForm);
       setPageMode("browse");
@@ -424,6 +437,38 @@ export default function InventoryList({ initialMode = "browse" }) {
                     ))}
                   </select>
                 </div>
+                <div className="form-group">
+                  <label className="form-label">Reorder Point</label>
+                  <input
+                    className="form-input"
+                    type="number"
+                    min="0"
+                    value={itemForm.min_quantity}
+                    onChange={(e) => updateItemForm("min_quantity", e.target.value)}
+                    placeholder="Alert when available falls to…"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Unit Cost</label>
+                  <input
+                    className="form-input"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={itemForm.unit_cost}
+                    onChange={(e) => updateItemForm("unit_cost", e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Supplier</label>
+                  <input
+                    className="form-input"
+                    value={itemForm.supplier}
+                    onChange={(e) => updateItemForm("supplier", e.target.value)}
+                    placeholder="Optional"
+                  />
+                </div>
               </div>
               <div className="form-actions">
                 <button type="button" className="btn btn-secondary" onClick={closeCreateItem}>Cancel</button>
@@ -497,6 +542,7 @@ export default function InventoryList({ initialMode = "browse" }) {
                       { key: "partial",   label: "Partial",   count: items.filter(i => i.available_quantity > 0 && i.available_quantity < i.quantity).length },
                       { key: "out",       label: "Out",       count: items.filter(i => i.available_quantity === 0 && i.quantity > 0).length },
                       { key: "not-in-lab", label: "Not in Lab", count: items.filter(i => i.quantity === 0).length },
+                      { key: "low",       label: "Low Stock", count: items.filter(isLowStock).length },
                     ].map(({ key, label, count }) => (
                       <button
                         key={key}
@@ -649,6 +695,28 @@ export default function InventoryList({ initialMode = "browse" }) {
                   <button type="button" className="btn btn-secondary" onClick={() => navigate("/categories")} style={{ width: "100%", display: "block", textAlign: "center", marginTop: "6px" }}>
                     Manage Categories
                   </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ width: "100%", display: "block", textAlign: "center", marginTop: "6px" }}
+                    disabled={exporting}
+                    onClick={async () => {
+                      setExporting(true);
+                      setError("");
+                      try {
+                        await downloadFile("/items/export", "items.csv");
+                      } catch (err) {
+                        setError(getErrorMessage(err));
+                      } finally {
+                        setExporting(false);
+                      }
+                    }}
+                  >
+                    {exporting ? "Exporting…" : "Export CSV"}
+                  </button>
+                  <button type="button" className="btn btn-secondary" onClick={() => setImportOpen(true)} style={{ width: "100%", display: "block", textAlign: "center", marginTop: "6px" }}>
+                    Import CSV
+                  </button>
                 </div>
               )}
 
@@ -746,6 +814,7 @@ export default function InventoryList({ initialMode = "browse" }) {
 
       {checkoutItem && <CheckoutModal item={checkoutItem} users={users} onClose={() => setCheckoutItem(null)} onSubmit={checkout} />}
       {checkinItem && <CheckinModal item={checkinItem} users={users} onClose={() => setCheckinItem(null)} onSubmit={checkin} />}
+      {importOpen && <ImportCsvModal onClose={() => setImportOpen(false)} onImported={load} />}
       {scannerMode && (
         <BarcodeScanner
           onScan={handleScan}

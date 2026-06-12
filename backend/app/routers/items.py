@@ -1,9 +1,14 @@
+import csv
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
+import io
 import secrets
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import or_
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import StreamingResponse
+from sqlalchemy import func, or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.audit import record_audit
@@ -14,7 +19,7 @@ from app.models.item import Item
 from app.models.location import Location
 from app.models.transaction import Transaction
 from app.models.user import User
-from app.schemas.item import CheckinRequest, CheckoutRequest
+from app.schemas.item import AdjustStockRequest, CheckinRequest, CheckoutRequest
 from app.schemas.item import Item as ItemSchema
 from app.schemas.item import ItemCreate, ItemUpdate
 from app.schemas.transaction import CartCheckoutItem, CartCheckoutRequest, CartCheckoutResponse
@@ -26,6 +31,69 @@ router = APIRouter(prefix="/items", tags=["items"])
 # Statuses/conditions that block a checkout.
 _BLOCKED_STATUSES = {"maintenance", "retired"}
 _BLOCKED_CONDITION = "damaged"
+_VALID_CONDITIONS = {"good", "needs_repair", "damaged"}
+_ITEM_EXPORT_COLUMNS = [
+    "asset_code",
+    "name",
+    "description",
+    "serial_number",
+    "barcode",
+    "quantity",
+    "available_quantity",
+    "condition",
+    "status",
+    "category",
+    "location",
+    "min_quantity",
+    "unit_cost",
+    "supplier",
+]
+
+
+def _blank_to_none(value: object) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _csv_value(value: object) -> object:
+    return "" if value is None else value
+
+
+def _csv_response(rows: list[list[object]], filename: str) -> StreamingResponse:
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerows(rows)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+def _parse_nonnegative_int(value: str | None, field_name: str) -> int | None:
+    if value is None:
+        return None
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise ValueError(f"{field_name} must be an integer.") from exc
+    if parsed < 0:
+        raise ValueError(f"{field_name} must be greater than or equal to 0.")
+    return parsed
+
+
+def _parse_nonnegative_decimal(value: str | None, field_name: str) -> Decimal | None:
+    if value is None:
+        return None
+    try:
+        parsed = Decimal(value)
+    except InvalidOperation as exc:
+        raise ValueError(f"{field_name} must be a decimal number.") from exc
+    if parsed < 0:
+        raise ValueError(f"{field_name} must be greater than or equal to 0.")
+    return parsed
 
 
 def _assert_checkoutable(item: Item) -> None:
@@ -97,6 +165,7 @@ def list_items(
     location_id: int | None = None,
     search: str | None = None,
     barcode: str | None = None,
+    low_stock: bool = False,
     include_deleted: bool = False,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
@@ -112,6 +181,11 @@ def list_items(
         query = query.filter(Item.location_id == location_id)
     if barcode is not None:
         query = query.filter(Item.barcode == barcode)
+    if low_stock:
+        query = query.filter(
+            Item.min_quantity.isnot(None),
+            Item.available_quantity <= Item.min_quantity,
+        )
     if search:
         term = f"%{search}%"
         query = query.filter(
@@ -232,6 +306,208 @@ def cart_checkout(
     return CartCheckoutResponse(session_id=session_id, transactions=loaded)
 
 
+@router.get("/stats")
+def get_item_stats(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+    totals = (
+        db.query(
+            func.count(Item.id),
+            func.coalesce(func.sum(Item.quantity), 0),
+            func.coalesce(func.sum(Item.quantity - Item.available_quantity), 0),
+            func.coalesce(func.sum(Item.quantity * Item.unit_cost), 0),
+        )
+        .filter(Item.deleted_at.is_(None))
+        .one()
+    )
+    low_stock_count = (
+        db.query(func.count(Item.id))
+        .filter(
+            Item.deleted_at.is_(None),
+            Item.min_quantity.isnot(None),
+            Item.available_quantity <= Item.min_quantity,
+        )
+        .scalar()
+    )
+    total_value = Decimal(str(totals[3] or 0)).quantize(Decimal("0.01"))
+    return {
+        "total_items": int(totals[0] or 0),
+        "total_quantity": int(totals[1] or 0),
+        "low_stock_count": int(low_stock_count or 0),
+        "total_value": str(total_value),
+        "checked_out_count": int(totals[2] or 0),
+    }
+
+
+@router.get("/export")
+def export_items(db: Session = Depends(get_db), _: User = Depends(require_staff)):
+    items = (
+        db.query(Item)
+        .options(joinedload(Item.category), joinedload(Item.location))
+        .filter(Item.deleted_at.is_(None))
+        .order_by(Item.asset_code)
+        .all()
+    )
+    rows: list[list[object]] = [_ITEM_EXPORT_COLUMNS]
+    rows.extend(
+        [
+            _csv_value(item.asset_code),
+            _csv_value(item.name),
+            _csv_value(item.description),
+            _csv_value(item.serial_number),
+            _csv_value(item.barcode),
+            item.quantity,
+            item.available_quantity,
+            _csv_value(item.condition),
+            _csv_value(item.status),
+            _csv_value(item.category.name if item.category else None),
+            _csv_value(item.location.name if item.location else None),
+            _csv_value(item.min_quantity),
+            _csv_value(item.unit_cost),
+            _csv_value(item.supplier),
+        ]
+        for item in items
+    )
+    return _csv_response(rows, "items.csv")
+
+
+@router.post("/import")
+async def import_items(request: Request, db: Session = Depends(get_db), actor: User = Depends(require_staff)):
+    try:
+        form = await request.form()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Invalid multipart form upload.") from exc
+    upload = form.get("file")
+    if upload is None or not hasattr(upload, "read"):
+        raise HTTPException(status_code=400, detail="CSV file field 'file' is required.")
+
+    contents = await upload.read()
+    try:
+        text = contents.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(status_code=400, detail="CSV file must be UTF-8 encoded.") from exc
+
+    reader = csv.DictReader(io.StringIO(text))
+    if not reader.fieldnames:
+        raise HTTPException(status_code=400, detail="CSV header row is required.")
+
+    created = 0
+    updated = 0
+    errors: list[dict[str, object]] = []
+
+    for row_number, raw_row in enumerate(reader, start=2):
+        row = {key: _blank_to_none(value) for key, value in raw_row.items() if key is not None}
+        name = row.get("name")
+        if not name:
+            errors.append({"row": row_number, "message": "name is required."})
+            continue
+
+        try:
+            quantity = _parse_nonnegative_int(row.get("quantity"), "quantity")
+            min_quantity = _parse_nonnegative_int(row.get("min_quantity"), "min_quantity")
+            unit_cost = _parse_nonnegative_decimal(row.get("unit_cost"), "unit_cost")
+        except ValueError as exc:
+            errors.append({"row": row_number, "message": str(exc)})
+            continue
+
+        condition = row.get("condition")
+        if condition is not None and condition not in _VALID_CONDITIONS:
+            errors.append({"row": row_number, "message": "condition is invalid."})
+            continue
+
+        asset_code = row.get("asset_code")
+        item: Item | None = None
+        if asset_code:
+            item = db.query(Item).filter(Item.asset_code == asset_code).first()
+            if item and item.deleted_at is not None:
+                errors.append({"row": row_number, "message": "asset_code belongs to a deleted item."})
+                continue
+
+        if item and quantity is not None:
+            checked_out = item.quantity - item.available_quantity
+            if quantity < checked_out:
+                errors.append({"row": row_number, "message": "quantity cannot be less than checked-out count."})
+                continue
+
+        category_id = None
+        if "category" in row:
+            category_name = row.get("category")
+            if category_name is not None:
+                category = db.query(Category).filter(Category.name == category_name).first()
+                if not category:
+                    category = Category(name=category_name)
+                    db.add(category)
+                    db.flush()
+                category_id = category.id
+
+        location_id = None
+        if "location" in row:
+            location_name = row.get("location")
+            if location_name is not None:
+                location = db.query(Location).filter(Location.name == location_name).first()
+                if not location:
+                    location = Location(name=location_name)
+                    db.add(location)
+                    db.flush()
+                location_id = location.id
+
+        if item:
+            item.name = name
+            for field in ("description", "serial_number", "barcode", "supplier"):
+                if field in row:
+                    setattr(item, field, row.get(field))
+            if quantity is not None:
+                checked_out = item.quantity - item.available_quantity
+                item.quantity = quantity
+                item.available_quantity = quantity - checked_out
+            if "min_quantity" in row:
+                item.min_quantity = min_quantity
+            if "unit_cost" in row:
+                item.unit_cost = unit_cost
+            if condition is not None:
+                item.condition = condition
+            if "category" in row:
+                item.category_id = category_id
+            if "location" in row:
+                item.location_id = location_id
+            _set_status_from_availability(item)
+            updated += 1
+            continue
+
+        item_quantity = quantity if quantity is not None else 0
+        item = Item(
+            asset_code=asset_code or generate_asset_code("SAFCSP-DRONE", db, Item),
+            name=name,
+            description=row.get("description"),
+            serial_number=row.get("serial_number"),
+            barcode=row.get("barcode"),
+            quantity=item_quantity,
+            available_quantity=item_quantity,
+            min_quantity=min_quantity if "min_quantity" in row else None,
+            unit_cost=unit_cost if "unit_cost" in row else None,
+            supplier=row.get("supplier"),
+            condition=condition or "good",
+            status="available",
+            category_id=category_id,
+            location_id=location_id,
+        )
+        _set_status_from_availability(item)
+        db.add(item)
+        created += 1
+
+    record_audit(
+        db,
+        actor,
+        "import_items",
+        "item",
+        details=f"created={created}, updated={updated}, errors={len(errors)}",
+    )
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="CSV import contains conflicting unique values.") from exc
+    return {"created": created, "updated": updated, "errors": errors}
+
+
 @router.get("/{item_id}", response_model=ItemSchema)
 def get_item(item_id: int, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     item = db.query(Item).options(joinedload(Item.location)).filter(Item.id == item_id).first()
@@ -286,6 +562,61 @@ def delete_item(item_id: int, db: Session = Depends(get_db), actor: User = Depen
     db.delete(item)
     db.commit()
     return None
+
+
+@router.post("/{item_id}/adjust", response_model=ItemSchema)
+def adjust_item_stock(
+    item_id: int,
+    payload: AdjustStockRequest,
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_staff),
+):
+    item = db.query(Item).with_for_update().filter(Item.id == item_id, Item.deleted_at.is_(None)).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found.")
+
+    reason = payload.reason.strip()
+    if not reason:
+        raise HTTPException(status_code=400, detail="reason is required.")
+
+    checked_out = item.quantity - item.available_quantity
+    old_quantity = item.quantity
+    if payload.delta is not None:
+        new_quantity = item.quantity + payload.delta
+    else:
+        new_quantity = payload.new_quantity
+    if new_quantity is None:
+        raise HTTPException(status_code=400, detail="Exactly one of delta or new_quantity must be provided.")
+    if new_quantity < 0:
+        raise HTTPException(status_code=400, detail="Resulting quantity cannot be negative.")
+    if new_quantity < checked_out:
+        raise HTTPException(status_code=400, detail="Resulting quantity cannot be less than checked-out count.")
+
+    item.quantity = new_quantity
+    item.available_quantity = new_quantity - checked_out
+    _set_status_from_availability(item)
+
+    change = new_quantity - old_quantity
+    transaction = Transaction(
+        item_id=item.id,
+        user_id=actor.id,
+        performed_by_id=actor.id,
+        type="adjust",
+        quantity=max(abs(change), 1),
+        notes=reason,
+    )
+    db.add(transaction)
+    record_audit(
+        db,
+        actor,
+        "adjust_item",
+        "item",
+        item.id,
+        details=f"{item.asset_code}: {old_quantity} -> {new_quantity}; {reason}",
+    )
+    db.commit()
+    db.refresh(item)
+    return item
 
 
 @router.post("/{item_id}/checkout", response_model=TransactionSchema, status_code=status.HTTP_201_CREATED)

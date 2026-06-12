@@ -10,4 +10,13 @@ export const itemsApi = {
   checkout: (id, payload) => client.post(`/items/${id}/checkout`, payload).then((res) => res.data),
   checkin: (id, payload) => client.post(`/items/${id}/checkin`, payload).then((res) => res.data),
   cartCheckout: (payload) => client.post("/items/cart-checkout", payload).then((r) => r.data),
+  adjust: (id, payload) => client.post(`/items/${id}/adjust`, payload).then((res) => res.data),
+  stats: () => client.get("/items/stats").then((res) => res.data),
+  importCsv: (file) => {
+    const form = new FormData();
+    form.append("file", file);
+    return client
+      .post("/items/import", form, { headers: { "Content-Type": "multipart/form-data" } })
+      .then((res) => res.data);
+  },
 };

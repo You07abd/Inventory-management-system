@@ -4,6 +4,7 @@ sqlalchemy
 psycopg2-binary
 pydantic
 pydantic[email]
+python-multipart
 python-dotenv
 alembic
 qrcode[pil]

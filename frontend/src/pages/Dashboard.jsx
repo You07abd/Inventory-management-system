@@ -5,6 +5,7 @@ import { getErrorMessage } from "../api/client";
 import { itemsApi } from "../api/items";
 import { transactionsApi } from "../api/transactions";
 import { getCategoryMeta, UNCATEGORIZED_CATEGORY } from "../utils/categoryMeta.jsx";
+import { formatMoney, inventoryValue, isLowStock } from "../utils/stock";
 
 export default function Dashboard() {
   const [items, setItems] = useState([]);
@@ -39,6 +40,8 @@ export default function Dashboard() {
   const totalUnits = items.reduce((s, i) => s + i.quantity, 0);
   const availableUnits = items.reduce((s, i) => s + i.available_quantity, 0);
   const checkedOut = totalUnits - availableUnits;
+  const lowStockItems = items.filter(isLowStock);
+  const totalValue = inventoryValue(items);
 
   const uncategorizedCount = items.filter((i) => i.category_id == null).length;
   const catCounts = [
@@ -105,11 +108,62 @@ export default function Dashboard() {
                 <div className="metric-footer">{checkedOut === 0 ? "No active loans" : "Active loans"}</div>
               </div>
               <div className="metric-card" style={{ padding: "14px 18px" }}>
-                <div className="metric-label">Item Types</div>
-                <div className="metric-value" style={{ fontSize: "26px" }}>{items.length}</div>
-                <div className="metric-footer">Across {catCounts.length} categories</div>
+                <div className="metric-label">Inventory Value</div>
+                <div className="metric-value" style={{ fontSize: "26px" }}>{formatMoney(totalValue)}</div>
+                <div className="metric-footer">{items.length} item types · {catCounts.length} categories</div>
               </div>
             </div>
+
+            {/* Low-stock alert strip */}
+            {lowStockItems.length > 0 && (
+              <div style={{
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                flexWrap: "wrap",
+                padding: "10px 14px",
+                background: "#fffbeb",
+                border: "1px solid #fde68a",
+                borderRadius: "var(--radius-md)",
+              }}>
+                <span style={{ fontSize: "12px", fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  ⚠ {lowStockItems.length} item{lowStockItems.length !== 1 ? "s" : ""} at or below reorder point
+                </span>
+                {lowStockItems.slice(0, 5).map((i) => (
+                  <button
+                    key={i.id}
+                    type="button"
+                    onClick={() => navigate(`/items/${i.id}`)}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      padding: "3px 10px",
+                      borderRadius: "999px",
+                      border: "1px solid #fde68a",
+                      background: "var(--color-surface)",
+                      color: "#92400e",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {i.name}
+                    <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700 }}>
+                      {i.available_quantity}/{i.min_quantity}
+                    </span>
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => navigate("/inventory?low_stock=1")}
+                  style={{ background: "none", border: "none", color: "var(--color-primary)", fontSize: "12px", fontWeight: 600, cursor: "pointer", marginLeft: "auto" }}
+                >
+                  View all →
+                </button>
+              </div>
+            )}
 
             {/* Panel row — fills the remaining height */}
             <div className="panel-row" style={{ flex: 1, minHeight: 0 }}>
@@ -177,11 +231,16 @@ export default function Dashboard() {
                   )}
                   {transactions.map((tx) => (
                     <div key={tx.id} className="activity-row">
-                      <div className={`activity-dot activity-dot--${tx.type === "checkout" ? "out" : "in"}`} />
+                      <div
+                        className={`activity-dot activity-dot--${tx.type === "checkout" ? "out" : "in"}`}
+                        style={tx.type === "adjust" ? { background: "#94a3b8" } : undefined}
+                      />
                       <div>
                         <div className="activity-text">
                           <strong>{tx.user_name || "Unknown"}</strong>
-                          {" "}{tx.type === "checkout" ? "checked out" : "returned"}{" "}
+                          {" "}
+                          {tx.type === "checkout" ? "checked out" : tx.type === "adjust" ? "adjusted stock of" : "returned"}
+                          {" "}
                           <strong>{itemMap[tx.item_id] || `Item #${tx.item_id}`}</strong>
                           {tx.quantity > 1 && ` ×${tx.quantity}`}
                         </div>

@@ -6,14 +6,14 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class UnitCreate(BaseModel):
     serial_number: str | None = None
-    condition: Literal["good", "fair", "poor", "damaged", "retired"] = "good"
+    condition: Literal["good", "needs_repair", "damaged"] = "good"
     location_id: int | None = None
     notes: str | None = None
 
 
 class UnitUpdate(BaseModel):
     serial_number: str | None = None
-    condition: Literal["good", "fair", "poor", "damaged", "retired"] | None = None
+    condition: Literal["good", "needs_repair", "damaged"] | None = None
     location_id: int | None = None
     notes: str | None = None
     status: Literal["available", "checked_out", "maintenance", "retired"] | None = None
@@ -27,7 +27,7 @@ class Unit(BaseModel):
     unit_number: int
     asset_code: str
     serial_number: str | None
-    condition: Literal["good", "fair", "poor", "damaged", "retired"]
+    condition: Literal["good", "needs_repair", "damaged"]
     status: Literal["available", "checked_out", "maintenance", "retired"]
     location_id: int | None
     location_name: str | None
@@ -51,7 +51,7 @@ class UnitCheckoutRequest(BaseModel):
 
 class UnitCheckinRequest(BaseModel):
     user_id: int
-    condition_on_return: str | None = None
+    condition_on_return: Literal["good", "needs_repair", "damaged"] | None = None
     notes: str | None = None
 
 

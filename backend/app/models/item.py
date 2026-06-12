@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
+from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -17,6 +18,9 @@ class Item(Base):
     barcode: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     available_quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    min_quantity: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    unit_cost: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    supplier: Mapped[str | None] = mapped_column(String(150), nullable=True)
     condition: Mapped[str] = mapped_column(String(80), nullable=False, default="good")
     status: Mapped[str] = mapped_column(String(80), nullable=False, default="available")
     track_units: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
