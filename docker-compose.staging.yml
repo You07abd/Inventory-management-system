@@ -1,0 +1,64 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-drone_inventory_staging}
+    volumes:
+      - db_data_staging:/var/lib/postgresql/data
+    networks:
+      - app_network
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-drone_inventory_staging}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-https://staging.aryx.dev}
+      ENV: ${ENV:-production}
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-.aryx.dev}
+    depends_on:
+      - db
+    networks:
+      - app_network
+      - coolify
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend-staging.rule=Host(`api.staging.aryx.dev`)"
+      - "traefik.http.routers.backend-staging.entrypoints=websecure"
+      - "traefik.http.routers.backend-staging.tls=true"
+      - "traefik.http.routers.backend-staging.tls.certresolver=letsencrypt"
+      - "traefik.http.services.backend-staging.loadbalancer.server.port=8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: https://api.staging.aryx.dev
+    depends_on:
+      - backend
+    networks:
+      - app_network
+      - coolify
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend-staging.rule=Host(`staging.aryx.dev`)"
+      - "traefik.http.routers.frontend-staging.entrypoints=websecure"
+      - "traefik.http.routers.frontend-staging.tls=true"
+      - "traefik.http.routers.frontend-staging.tls.certresolver=letsencrypt"
+      - "traefik.http.services.frontend-staging.loadbalancer.server.port=80"
+
+networks:
+  app_network:
+  coolify:
+    external: true
+
+volumes:
+  db_data_staging:
