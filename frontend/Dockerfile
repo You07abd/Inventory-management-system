@@ -14,7 +14,10 @@ RUN npm run build
 
 FROM nginx:alpine
 
+ARG VITE_API_BASE_URL=https://api.aryx.dev
+
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+RUN sed -i "s|https://api.aryx.dev|${VITE_API_BASE_URL}|g" /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
